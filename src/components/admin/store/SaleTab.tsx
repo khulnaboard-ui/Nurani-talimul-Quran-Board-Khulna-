@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Filter, Download, FileText, MoreVertical, CheckCircle, Trash2, Share2, X, Scan } from 'lucide-react';
+import { Search, Plus, Filter, Download, FileText, MoreVertical, CheckCircle, Trash2, Share2, X, Scan, Edit } from 'lucide-react';
 import BanglaDatePicker, { toBanglaDigits } from './BanglaDatePicker';
 
 type SaleItem = { id: string; quantity: number; unitPrice: number; product: { name: string } };
@@ -546,16 +546,19 @@ function ActionDropdown({ sale, onUpdate }: { sale: Sale; onUpdate: () => void }
         <MoreVertical className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-white shadow-xl rounded-xl border border-slate-100 z-10 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 w-48 bg-white shadow-xl rounded-xl border border-slate-100 z-50 overflow-hidden">
           <button onClick={printInvoice} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
             <FileText className="w-4 h-4 text-blue-500" /> প্রিন্ট ইনভয়েস
           </button>
           <button onClick={shareInvoice} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
             <Share2 className="w-4 h-4 text-green-500" /> শেয়ার করুন
           </button>
+          <button onClick={() => alert('এডিট অপশনটি শীঘ্রই আসছে!')} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+            <Edit className="w-4 h-4 text-amber-500" /> এডিট করুন
+          </button>
           {sale.status !== 'Paid' && (
             <button onClick={markPaid} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-              <CheckCircle className="w-4 h-4 text-emerald-500" /> পরিশোধিত হিসেবে চিহ্নিত
+              <CheckCircle className="w-4 h-4 text-emerald-500" /> পরিশোধিত
             </button>
           )}
           <div className="border-t border-slate-100" />
@@ -617,8 +620,8 @@ export default function SaleTab() {
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-        <div className="overflow-x-auto">
+      <div className="border border-slate-200 rounded-xl bg-white">
+        <div className="min-w-full">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">

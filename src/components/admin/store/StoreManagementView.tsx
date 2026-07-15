@@ -57,7 +57,7 @@ export default function StoreManagementView() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 p-6 bg-white overflow-x-auto">
+      <div className="flex-1 p-6 bg-white overflow-visible">
         {activeTab === 'sale' && <SaleTab />}
         {activeTab === 'stock' && <StockTab />}
         {activeTab === 'payment' && <PaymentTab />}

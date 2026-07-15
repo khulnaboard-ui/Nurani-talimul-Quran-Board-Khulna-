@@ -63,7 +63,7 @@ function ProductModal({ product, products = [], onClose, onSaved }: { product?: 
     else { const d = await res.json(); setError(d.error || 'সেভ করতে সমস্যা হয়েছে'); }
   };
 
-  const [categories, setCategories] = useState<{id:string, name:string}[]>([]);
+  const [categories, setCategories] = useState<{id:string, name:string, isClassWise?: boolean}[]>([]);
   useEffect(() => {
     fetch('/api/store/categories').then(r => r.json()).then(data => setCategories(Array.isArray(data) ? data : []));
   }, []);
