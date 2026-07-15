@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, Users, FileText, Settings, LogOut, UserCircle, ChevronDown, ShieldAlert, CheckCircle2, Building2, MapPin, ChevronRight, Plus, Trash2, ClipboardList, Clock, XCircle, X, Eye, Phone, MessageCircle, PhoneCall, MoreVertical, LayoutGrid, List } from "lucide-react";
+import { LayoutDashboard, Users, FileText, Settings, LogOut, UserCircle, ChevronDown, ShieldAlert, CheckCircle2, Building2, MapPin, ChevronRight, Plus, Trash2, ClipboardList, Clock, XCircle, X, Eye, Phone, MessageCircle, PhoneCall, MoreVertical, LayoutGrid, List, Package, ShoppingCart, CreditCard, ShoppingBag, BookOpen } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Suspense, useEffect } from "react";
 import { useDialog } from "@/components/ui/DialogProvider";
 import PrintableReceipt from "@/components/forms/PrintableReceipt";
 import SettingsTab from "@/components/admin/SettingsTab";
+import StoreManagementView from "@/components/admin/store/StoreManagementView";
+import CurriculumManagementView from "@/components/admin/CurriculumManagementView";
 
 type UserType = {
   _id: string;
@@ -1269,6 +1272,10 @@ function AdminDashboardContent() {
     </>
   );
 
+  const renderStoreManagement = () => (
+    <StoreManagementView />
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
@@ -1282,6 +1289,8 @@ function AdminDashboardContent() {
         <nav className="flex-1 space-y-2 overflow-y-auto">
           {[
             { id: "dashboard", icon: LayoutDashboard, label: "ড্যাশবোর্ড" },
+            { id: "store", icon: ShoppingBag, label: "স্টোর পরিচালনা" },
+            { id: "curriculum", icon: BookOpen, label: "কারিকুলাম" },
             { id: "applications", icon: ClipboardList, label: "আবেদন", badge: applications.filter(a=>a.status==='PENDING').length },
             { id: "locations", icon: MapPin, label: "লোকেশন পরিচালনা" },
             { id: "madrasas", icon: Building2, label: "মাদরাসা পরিচালনা" },
@@ -1334,6 +1343,8 @@ function AdminDashboardContent() {
         {activeTab === "madrasas" && renderMadrasaManagement()}
         {activeTab === "locations" && renderLocationManagement()}
         {activeTab === "applications" && renderApplicationManagement()}
+        {activeTab === "store" && renderStoreManagement()}
+        {activeTab === "curriculum" && <CurriculumManagementView />}
         {activeTab === "dashboard" && renderDashboard()}
         {activeTab === "settings" && <SettingsTab />}
         

@@ -13,9 +13,9 @@ const config: Config = {
       },
       colors: {
         primary: {
-          light: '#4ade80',
-          DEFAULT: '#16a34a',
-          dark: '#15803d',
+          light: '#16a34a',
+          DEFAULT: '#0a7a3a',
+          dark: '#065f30',
         },
         golden: {
           light: '#fde047',

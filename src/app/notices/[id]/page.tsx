@@ -1,7 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Calendar, FileText } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, Download } from "lucide-react";
+import { existsSync } from "fs";
+import { join } from "path";
 
 const prisma = new PrismaClient();
 
@@ -23,25 +25,29 @@ export default async function NoticeDetailsPage({
       year: "numeric",
     });
 
-    // Extract the download URL
+    // Extract the download URL from the notice content
     const downloadLinkMatch = notice.content.match(/href="(\/uploads\/notices\/[^"]+)"/);
     const downloadUrl = downloadLinkMatch ? downloadLinkMatch[1] : null;
     const isPdf = downloadUrl?.toLowerCase().endsWith(".pdf");
-    
-    // Aggressively clean the injected text that Quill reformatted
+
+    // Verify the file actually exists on disk before showing anything
+    let fileExists = false;
+    if (downloadUrl) {
+      // downloadUrl is like /uploads/documents/uuid.pdf or /uploads/notices/uuid.pdf
+      const relativePath = downloadUrl.startsWith("/") ? downloadUrl.slice(1) : downloadUrl;
+      const absolutePath = join(process.cwd(), "public", relativePath);
+      fileExists = existsSync(absolutePath);
+    }
+
+    // Clean the injected attachment link from displayed content
     let cleanContent = notice.content;
     if (downloadUrl) {
-      // 1. Remove the exact div structure if it exists
-      cleanContent = cleanContent.replace(/<div style="margin-top: 20px;[\s\S]*?<\/div>[\s\S]*?<\/div>[\s\S]*?<\/div>/gi, '');
-      
-      // 2. Remove if Quill stripped it into bare tags (e.g., <p>PDF</p><p>filename.pdf</p><p><a>Download</a></p>)
-      cleanContent = cleanContent.replace(/<[a-z0-9]+>\s*PDF\s*<\/[a-z0-9]+>[\s\S]*?<[a-z0-9]+>.*?\.pdf\s*<\/[a-z0-9]+>[\s\S]*?<[a-z0-9]+>.*?<a href="\/uploads\/notices\/[^"]+".*?>Download<\/a>.*?<\/[a-z0-9]+>/gi, '');
-      
-      // 3. Remove if Quill merged them into a single tag with line breaks
-      cleanContent = cleanContent.replace(/<[a-z0-9]+>[^<]*PDF[\s\S]*?<a href="\/uploads\/notices\/[^"]+".*?>Download<\/a>.*?<\/[a-z0-9]+>/gi, '');
-
-      // 5. Remove the new clean link format
+      // Remove the clean link format inserted by the editor
       cleanContent = cleanContent.replace(/<p><strong>📎 Attached Document: <\/strong>.*?<\/p>/gi, '');
+      // Remove old-style div attachment blocks
+      cleanContent = cleanContent.replace(/<div style="margin-top: 20px;[\s\S]*?<\/div>[\s\S]*?<\/div>[\s\S]*?<\/div>/gi, '');
+      // Remove any remaining orphaned download links to uploads/notices
+      cleanContent = cleanContent.replace(/<[a-z0-9]+>[^<]*<a href="\/uploads\/notices\/[^"]+?".*?>.*?<\/a>.*?<\/[a-z0-9]+>/gi, '');
     }
 
     return (
@@ -74,13 +80,42 @@ export default async function NoticeDetailsPage({
               dangerouslySetInnerHTML={{ __html: cleanContent }} 
             />
 
-            {isPdf && (
-              <div className="mt-2 border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <iframe 
-                  src={downloadUrl} 
-                  className="w-full h-[800px] border-none"
-                  title="PDF Viewer"
-                />
+            {/* Only render attachment section if file actually exists on the server */}
+            {downloadUrl && fileExists && (
+              <div className="mt-6 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                {isPdf ? (
+                  <>
+                    <div className="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-slate-600 font-medium text-sm">
+                        <FileText className="w-4 h-4 text-red-500" />
+                        <span>সংযুক্ত ডকুমেন্ট</span>
+                      </div>
+                      <a
+                        href={downloadUrl}
+                        download
+                        className="flex items-center gap-2 text-xs text-primary font-bold hover:underline"
+                      >
+                        <Download className="w-3.5 h-3.5" /> ডাউনলোড করুন
+                      </a>
+                    </div>
+                    <iframe
+                      src={downloadUrl}
+                      className="w-full h-[800px] border-none"
+                      title="PDF Viewer"
+                    />
+                  </>
+                ) : (
+                  <div className="p-4 flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-blue-500" />
+                    <a
+                      href={downloadUrl}
+                      download
+                      className="text-blue-600 font-medium hover:underline text-sm"
+                    >
+                      সংযুক্ত ফাইল ডাউনলোড করুন
+                    </a>
+                  </div>
+                )}
               </div>
             )}
           </div>

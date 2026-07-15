@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { CoverTopBar, PageCoverHeader } from "@/components/layout/CoverBanner";
 import { getUserSession } from "@/lib/auth";
 import { DialogProvider } from "@/components/ui/DialogProvider";
 
@@ -29,10 +30,16 @@ export default async function RootLayout({
       <body className={`${solaimanLipi.variable} font-sans`}>
         <DialogProvider>
           <div className="min-h-screen flex flex-col bg-slate-50">
-            <Navbar user={user} />
+            {/* Cover + Navbar sticky unit — they scroll together and stick together */}
+            <div className="sticky top-0 z-50">
+              <CoverTopBar />
+              <Navbar user={user} />
+            </div>
 
             {/* Main Content */}
             <main className="flex-grow">
+              {/* Sliding page header cover (conditionally shown from settings) */}
+              <PageCoverHeader />
               {children}
             </main>
 

@@ -112,8 +112,6 @@ export default function Navbar({ user }: { user?: UserPayload }) {
             {isMobileMenuOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
           </button>
           <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition">
-            <span className="text-white font-bold">খুলনা</span>
-            <span>নূরানী বোর্ড</span>
           </Link>
         </div>
 
@@ -133,7 +131,7 @@ export default function Navbar({ user }: { user?: UserPayload }) {
               
               {/* Dropdown Menu */}
               {item.subItems && (
-                <div className="absolute top-full left-0 mt-0 w-56 bg-white text-gray-800 shadow-xl rounded-md overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 border border-gray-100">
+                <div className="absolute top-full left-0 mt-0 w-56 bg-white text-gray-800 shadow-xl rounded-md overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-100 border border-gray-100">
                   <div className="py-2">
                     {item.subItems.map((sub, sIdx) => (
                       <Link 
@@ -159,7 +157,7 @@ export default function Navbar({ user }: { user?: UserPayload }) {
                 <User className="w-5 h-5" />
               </div>
               {/* Dropdown */}
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 border border-gray-100 z-50">
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-100 border border-gray-100 z-50">
                   <div className="py-2">
                     <div className="px-4 py-2 border-b border-gray-100 mb-1">
                       <p className="text-sm font-semibold text-gray-800 truncate">{user.name}</p>
@@ -223,7 +221,7 @@ export default function Navbar({ user }: { user?: UserPayload }) {
           ></div>
           
           {/* Sidebar Drawer */}
-          <div className="relative w-72 max-w-[85%] bg-white h-full shadow-2xl overflow-y-auto flex flex-col animate-in slide-in-from-left duration-300">
+          <div className="relative w-72 max-w-[85%] bg-white h-full shadow-2xl overflow-y-auto flex flex-col animate-in slide-in-from-left duration-150">
             <div className="sticky top-0 z-10 p-4 flex items-center justify-between border-b border-slate-100 bg-primary">
               <span className="text-xl font-bold text-white">মেনু</span>
               <button 

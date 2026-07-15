@@ -50,11 +50,13 @@ model PageContent {
 }
 
 model BoardSettings {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  name       String?  @default("খুলনা নূরানী তালিমুল কুরআন বোর্ড")
-  address    String?
-  logoUrl    String?
-  coverUrl   String?
+  id                     String   @id @default(auto()) @map("_id") @db.ObjectId
+  name                   String?  @default("খুলনা নূরানী তালিমুল কুরআন বোর্ড")
+  address                String?
+  logoUrl                String?
+  coverUrl               String?
+  showCoverAboveNavbar   Boolean? @default(false)
+  showCoverInPageHeader  Boolean? @default(false)
   
   contacts   ContactInfo[]
   payments   PaymentMethod[]
@@ -101,4 +103,144 @@ model BoardMember {
   type       String   @default("COMMITTEE")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model StoreCategory {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   @unique
+  isClassWise Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model StoreProduct {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  category  String
+  price     Float
+  stock     Int      @default(0)
+  unit      String?  @default("টি")
+  imageUrl  String?
+  barcode   String?  @unique
+  className String?
+  subject   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  saleItems StoreSaleItem[]
+  stockHistory StockHistory[]
+}
+
+model StockHistory {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  productId String       @db.ObjectId
+  product   StoreProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  reason    String?
+  createdAt DateTime     @default(now())
+}
+
+model StoreSale {
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceId    String         @unique
+  customerName String
+  customerPhone String?
+  instituteId  String?
+  totalAmount  Float
+  paidAmount   Float          @default(0)
+  discount     Float          @default(0)
+  status       String         @default("Pending") // Paid | Pending | Partial
+  promiseDate  DateTime?
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  items        StoreSaleItem[]
+  payments     StorePayment[]
+}
+
+model StoreSaleItem {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  saleId    String       @db.ObjectId
+  sale      StoreSale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String       @db.ObjectId
+  product   StoreProduct @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float
+  createdAt DateTime     @default(now())
+}
+
+model StorePayment {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  saleId     String?   @db.ObjectId
+  sale       StoreSale? @relation(fields: [saleId], references: [id])
+  payer      String
+  purpose    String
+  amount     Float
+  method     String    @default("Cash") // Cash | bKash | Nagad | Bank
+  status     String    @default("Completed") // Completed | Partial
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model CurriculumClass {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String   @unique
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  books     CurriculumBook[]
+  syllabuses CurriculumSyllabus[]
+  examYears CurriculumExamYear[]
+}
+
+model CurriculumBook {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  coverImage  String?
+  pdfUrl      String?
+  classId     String          @db.ObjectId
+  class       CurriculumClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model CurriculumSyllabus {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  pdfUrl    String
+  classId   String          @db.ObjectId
+  class     CurriculumClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model CurriculumExamYear {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  year      String
+  classId   String          @db.ObjectId
+  class     CurriculumClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  exams     CurriculumExam[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model CurriculumExam {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  yearId     String          @db.ObjectId
+  year       CurriculumExamYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
+  resources  CurriculumExamResource[]
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}
+
+model CurriculumExamResource {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  examId     String          @db.ObjectId
+  exam       CurriculumExam  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  type       String          // ADMIT_CARD, ROUTINE, QUESTION
+  title      String?
+  fileUrl    String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 }

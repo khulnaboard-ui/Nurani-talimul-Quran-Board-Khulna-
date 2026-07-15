@@ -27,6 +27,8 @@ interface BoardSettings {
   address?: string;
   logoUrl?: string;
   coverUrl?: string;
+  showCoverAboveNavbar?: boolean;
+  showCoverInPageHeader?: boolean;
   contacts: ContactInfo[];
   payments: PaymentMethod[];
 }
@@ -155,6 +157,8 @@ function GeneralTab({ settings, onSave }: { settings: BoardSettings | null; onSa
     address: settings?.address || "",
     logoUrl: settings?.logoUrl || "",
     coverUrl: settings?.coverUrl || "",
+    showCoverAboveNavbar: settings?.showCoverAboveNavbar ?? false,
+    showCoverInPageHeader: settings?.showCoverInPageHeader ?? false,
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -169,6 +173,8 @@ function GeneralTab({ settings, onSave }: { settings: BoardSettings | null; onSa
         address: settings.address || "",
         logoUrl: settings.logoUrl || "",
         coverUrl: settings.coverUrl || "",
+        showCoverAboveNavbar: settings.showCoverAboveNavbar ?? false,
+        showCoverInPageHeader: settings.showCoverInPageHeader ?? false,
       });
     }
   }, [settings]);
@@ -189,6 +195,8 @@ function GeneralTab({ settings, onSave }: { settings: BoardSettings | null; onSa
       if (res.ok) {
         toast.success("সফলভাবে সংরক্ষিত হয়েছে!");
         localStorage.removeItem('boardSettingsGeneralDraft');
+        // Notify banner components instantly – no page reload needed
+        window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: formData }));
         onSave();
       } else throw new Error();
     } catch (error) {
@@ -276,6 +284,57 @@ function GeneralTab({ settings, onSave }: { settings: BoardSettings | null; onSa
             </div>
           </div>
         </div>
+
+        {/* Cover display options – shown only when a cover image exists */}
+        {formData.coverUrl && (
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-3">
+            <p className="text-sm font-semibold text-slate-700 mb-2">কভার ছবি প্রদর্শন বিকল্প</p>
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <div className="relative mt-0.5">
+                <input
+                  type="checkbox"
+                  id="showCoverAboveNavbar"
+                  checked={formData.showCoverAboveNavbar}
+                  onChange={e => setFormData({ ...formData, showCoverAboveNavbar: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-emerald-600 peer-checked:border-emerald-600 transition-colors flex items-center justify-center">
+                  {formData.showCoverAboveNavbar && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-slate-800">ওয়েবসাইট নেভবারের উপরে কভার দেখান</span>
+                <p className="text-xs text-slate-500 mt-0.5">হোম পেজে নেভবারের ঠিক উপরে একটি ব্যানার হিসেবে কভার ছবি প্রদর্শিত হবে।</p>
+              </div>
+            </label>
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <div className="relative mt-0.5">
+                <input
+                  type="checkbox"
+                  id="showCoverInPageHeader"
+                  checked={formData.showCoverInPageHeader}
+                  onChange={e => setFormData({ ...formData, showCoverInPageHeader: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-emerald-600 peer-checked:border-emerald-600 transition-colors flex items-center justify-center">
+                  {formData.showCoverInPageHeader && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <div>
+                <span className="text-sm font-medium text-slate-800">সকল পেজের হেডারে স্লাইডিং ব্যানার হিসেবে দেখান</span>
+                <p className="text-xs text-slate-500 mt-0.5">সকল ডকুমেন্ট ও তথ্য পেজের শীর্ষে একটি স্লাইডিং স্ক্রলিং ব্যানার হিসেবে কভার ছবি দেখাবে।</p>
+              </div>
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="pt-6 border-t mt-8">
