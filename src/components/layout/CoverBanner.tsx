@@ -61,7 +61,7 @@ export function CoverTopBar() {
         width: "100%",
         maxHeight: visible ? (isExpanded ? "1200px" : `${COVER_H}px`) : "0px",
         overflow: "hidden",
-        transition: `max-height ${isExpanded ? '3s' : '3.5s'} cubic-bezier(0.4, 0, 0.2, 1)`,
+        transition: `max-height 1s cubic-bezier(0.4, 0, 0.2, 1)`,
         position: "relative",
         cursor: isExpanded ? "default" : "zoom-in",
       }}
@@ -76,7 +76,7 @@ export function CoverTopBar() {
           display: "block",
           objectFit: "cover",
           marginTop: isExpanded ? "0" : "-20px",
-          transition: `margin-top ${isExpanded ? '3s' : '3.5s'} cubic-bezier(0.4, 0, 0.2, 1)`,
+          transition: `margin-top 1s cubic-bezier(0.4, 0, 0.2, 1)`,
         }}
       />
       {/* Bottom fade */}
