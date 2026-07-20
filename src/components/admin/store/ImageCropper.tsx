@@ -31,9 +31,9 @@ export default function ImageCropper({ onCropComplete, onCancel }: { onCropCompl
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       
-      // Target 800x600 (4:3)
-      canvas.width = 800;
-      canvas.height = 600;
+      // Target 600x800 (3:4 Book Cover Ratio)
+      canvas.width = 600;
+      canvas.height = 800;
       
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(0, 0, canvas.width, canvas.height);

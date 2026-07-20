@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Download, FileText, CheckCircle, MoreVertical, Trash2, Share2, X, Plus, Calendar, Filter, DollarSign, Wallet, Percent, AlertCircle, Phone } from 'lucide-react';
 
-type Payment = { id: string; payer: string; purpose: string; amount: number; method: string; status: string; createdAt: string; sale?: { invoiceId: string } | null };
+type Payment = { id: string; payer: string; purpose: string; amount: number; method: string; status: string; createdAt: string; sale?: { invoiceId: string; totalAmount: number; paidAmount: number } | null };
 
 function NewPaymentModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({ payer: '', purpose: '', amount: '', method: 'Cash', status: 'Completed', notes: '' });
@@ -136,7 +136,7 @@ function ActionDropdown({ payment, onUpdate }: { payment: Payment; onUpdate: () 
         <MoreVertical className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-white shadow-xl rounded-xl border border-slate-100 z-10 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 w-48 bg-white shadow-xl rounded-xl border border-slate-100 z-50 overflow-hidden">
           <button onClick={printReceipt} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
             <FileText className="w-4 h-4 text-blue-500" /> রসিদ প্রিন্ট
           </button>
@@ -236,7 +236,11 @@ export default function PaymentTab() {
       if (saleRes.ok) {
         const salesData = await saleRes.json();
         if (Array.isArray(salesData)) {
-          setDueSales(salesData.filter(s => s.totalAmount > s.paidAmount && s.promiseDate).sort((a, b) => new Date(a.promiseDate).getTime() - new Date(b.promiseDate).getTime()));
+          setDueSales(salesData.filter(s => s.totalAmount > s.paidAmount).sort((a, b) => {
+            if (!a.promiseDate) return 1;
+            if (!b.promiseDate) return -1;
+            return new Date(a.promiseDate).getTime() - new Date(b.promiseDate).getTime();
+          }));
         }
       }
     } catch { setPayments([]); setDueSales([]); }
@@ -247,7 +251,11 @@ export default function PaymentTab() {
 
   const filtered = payments.filter(p => {
     const matchSearch = p.payer.toLowerCase().includes(searchTerm.toLowerCase()) || p.purpose.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchTab = subTab === 'all' || (subTab === 'completed' && p.status === 'Completed') || (subTab === 'partial' && p.status === 'Partial');
+    const isPartialSale = p.sale && (p.sale.totalAmount > p.sale.paidAmount);
+    const isPartial = p.status === 'Partial' || isPartialSale;
+    const isCompleted = p.status === 'Completed' && !isPartialSale;
+    
+    const matchTab = subTab === 'all' || (subTab === 'completed' && isCompleted) || (subTab === 'partial' && isPartial);
     
     let matchDate = true;
     if (dateRange.start && dateRange.end) {
@@ -281,8 +289,8 @@ export default function PaymentTab() {
             <AlertCircle className="w-5 h-5" />
             <h3 className="text-lg">পেমেন্ট ফলো-আপ (Follow-ups)</h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left bg-white rounded-lg overflow-hidden border border-red-100">
+          <div className="overflow-visible">
+            <table className="w-full text-left bg-white rounded-lg overflow-visible border border-red-100">
               <thead>
                 <tr className="bg-red-100/50 text-red-800 text-sm border-b border-red-100">
                   <th className="px-4 py-2 font-semibold">ক্রেতা</th>
@@ -296,16 +304,19 @@ export default function PaymentTab() {
               </thead>
               <tbody className="divide-y divide-red-50 text-sm">
                 {dueSales.map(sale => {
-                  const isOverdue = new Date(sale.promiseDate).getTime() < new Date().getTime();
+                  const hasPromiseDate = !!sale.promiseDate;
+                  const isOverdue = hasPromiseDate && new Date(sale.promiseDate).getTime() < new Date().getTime();
                   return (
                     <tr key={sale.id} className="hover:bg-red-50/50">
                       <td className="px-4 py-3 font-bold text-slate-800">{sale.customerName}</td>
                       <td className="px-4 py-3 text-slate-600">{sale.invoiceId}</td>
                       <td className="px-4 py-3 text-slate-600">{sale.customerPhone || '-'}</td>
                       <td className="px-4 py-3 font-bold text-red-600">{(sale.totalAmount - sale.paidAmount).toFixed(2)} ৳</td>
-                      <td className="px-4 py-3 font-medium text-slate-700">{new Date(sale.promiseDate).toLocaleDateString('bn-BD')}</td>
+                      <td className="px-4 py-3 font-medium text-slate-700">{hasPromiseDate ? new Date(sale.promiseDate).toLocaleDateString('bn-BD') : '-'}</td>
                       <td className="px-4 py-3">
-                        {isOverdue ? (
+                        {!hasPromiseDate ? (
+                          <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded">নির্ধারিত নয়</span>
+                        ) : isOverdue ? (
                           <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded">মেয়াদোত্তীর্ণ</span>
                         ) : (
                           <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded">অপেক্ষমান</span>
@@ -394,8 +405,8 @@ export default function PaymentTab() {
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-        <div className="overflow-x-auto">
+      <div className="border border-slate-200 rounded-xl overflow-visible bg-white min-h-[300px]">
+        <div className="overflow-visible">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
@@ -425,9 +436,14 @@ export default function PaymentTab() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${payment.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {payment.status === 'Completed' ? 'সম্পন্ন' : 'আংশিক'}
-                    </span>
+                    {(() => {
+                      const isPartial = payment.status === 'Partial' || (payment.sale && payment.sale.totalAmount > payment.sale.paidAmount);
+                      return (
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${!isPartial ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {!isPartial ? 'সম্পন্ন' : 'আংশিক'}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 text-right"><ActionDropdown payment={payment} onUpdate={fetchPayments} /></td>
                 </tr>

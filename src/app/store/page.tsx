@@ -120,6 +120,146 @@ function ProductDetailModal({
   );
 }
 
+function OrderFormModal({ onClose, total }: { onClose: () => void; total: number }) {
+  const [ilhak, setIlhak] = useState("");
+  const [name, setName] = useState("");
+  const [contactNo, setContactNo] = useState("");
+  const [address, setAddress] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchStatus, setSearchStatus] = useState<"idle" | "found" | "not_found" | "error">("idle");
+
+  const searchIlhak = async () => {
+    if (!ilhak.trim()) return;
+    setIsLoading(true);
+    setSearchStatus("idle");
+    try {
+      const res = await fetch(`/api/madrasa/by-code?code=${encodeURIComponent(ilhak)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setName(data.name || "");
+        setContactNo(data.contactNo || "");
+        setAddress(data.address || "");
+        setSearchStatus("found");
+      } else if (res.status === 404) {
+        setSearchStatus("not_found");
+      } else {
+        setSearchStatus("error");
+      }
+    } catch (e) {
+      setSearchStatus("error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!name || !address) {
+      alert("অনুগ্রহ করে নাম এবং ঠিকানা প্রদান করুন।");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      if (ilhak.trim() && searchStatus !== "found") {
+        await fetch("/api/madrasa/ilhak", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: ilhak, name, contactNo, address }),
+        });
+      }
+      
+      alert("অর্ডার সম্পন্ন হয়েছে! আপনার তথ্য সেভ করা হয়েছে।");
+      onClose();
+    } catch (e) {
+      alert("অর্ডার করতে সমস্যা হয়েছে।");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative animate-in zoom-in-95 duration-200 border border-slate-100 flex flex-col max-h-[90vh]">
+        <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 flex-shrink-0">
+          <h2 className="font-bold text-slate-800 text-lg">অর্ডার নিশ্চিত করুন</h2>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+            <X className="w-5 h-5 text-slate-500" />
+          </button>
+        </div>
+        <div className="p-6 overflow-y-auto flex-1">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">ইলহাক নম্বর (যদি থাকে)</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={ilhak}
+                  onChange={(e) => setIlhak(e.target.value)}
+                  placeholder="যেমন: 1234" 
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
+                />
+                <button 
+                  onClick={searchIlhak}
+                  disabled={isLoading || !ilhak.trim()}
+                  className="px-5 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 flex-shrink-0"
+                >
+                  {isLoading ? "খুঁজছি..." : "খুঁজুন"}
+                </button>
+              </div>
+              {searchStatus === "found" && <p className="text-xs text-emerald-600 mt-1.5 font-medium">✓ ইলহাক পাওয়া গেছে, তথ্য অটো-ফিল করা হয়েছে!</p>}
+              {searchStatus === "not_found" && <p className="text-xs text-amber-600 mt-1.5 font-medium">⚠ ইলহাক পাওয়া যায়নি। নতুন তথ্য সেভ করা হবে।</p>}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100">
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">নাম / মাদরাসার নাম <span className="text-red-500">*</span></label>
+              <input 
+                type="text" 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="আপনার পুরো নাম" 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">মোবাইল নম্বর</label>
+              <input 
+                type="tel" 
+                value={contactNo}
+                onChange={(e) => setContactNo(e.target.value)}
+                placeholder="01XXXXXXXXX" 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">সম্পূর্ণ ঠিকানা <span className="text-red-500">*</span></label>
+              <textarea 
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="গ্রাম/মহল্লা, ডাকঘর, উপজেলা, জেলা" 
+                rows={3} 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none bg-slate-50 focus:bg-white"
+              ></textarea>
+            </div>
+          </div>
+          
+          <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between">
+            <span className="font-bold text-slate-500">সর্বমোট বিল:</span>
+            <span className="text-2xl font-black text-primary">৳{total.toFixed(2)}</span>
+          </div>
+          
+          <button 
+            onClick={handleConfirm}
+            disabled={isSubmitting}
+            className="mt-6 w-full py-4 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 active:scale-[0.98] disabled:opacity-70"
+          >
+            {isSubmitting ? "অপেক্ষা করুন..." : "কনফার্ম করুন"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function StorePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,13 +273,16 @@ export default function StorePage() {
   const [cart, setCart] = useState<{ product: Product; qty: number }[]>([]);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [ratingFilter, setRatingFilter] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     fetch("/api/store/products")
       .then(r => r.json())
       .then(data => { setProducts(Array.isArray(data) ? data : []); setLoading(false); })
@@ -149,6 +292,13 @@ export default function StorePage() {
       const fav = JSON.parse(localStorage.getItem("store_favourites") || "[]");
       setFavourites(new Set(fav));
     } catch { }
+    // Load cart from localStorage
+    try {
+      const savedCart = JSON.parse(localStorage.getItem("store_cart") || "[]");
+      if (Array.isArray(savedCart) && savedCart.length > 0) {
+        setCart(savedCart);
+      }
+    } catch { }
 
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
@@ -157,6 +307,12 @@ export default function StorePage() {
       document.documentElement.style.overflow = "auto";
     };
   }, []);
+
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem("store_cart", JSON.stringify(cart));
+    }
+  }, [cart, isMounted]);
 
   const toggleFav = (id: string) => {
     setFavourites(prev => {
@@ -209,7 +365,7 @@ export default function StorePage() {
   };
 
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col bg-slate-50 overflow-hidden">
+    <div className="h-[calc(100vh-200px)] flex flex-col bg-slate-50 overflow-hidden">
       {/* Top Header */}
       <div className="bg-white border-b border-slate-200 z-30 shadow-sm flex-shrink-0">
         <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-3 flex items-center justify-between gap-3">
@@ -495,63 +651,60 @@ export default function StorePage() {
         {/* Right Sidebar - Cart */}
         <aside className={`
           hidden xl:flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out h-full overflow-hidden bg-white
-          ${rightSidebarOpen ? "w-80 border-l border-slate-200 opacity-100" : "w-0 border-l-0 opacity-0"}
+          ${rightSidebarOpen ? "w-96 border-l border-slate-200 opacity-100" : "w-0 border-l-0 opacity-0"}
         `}>
-          <div className="flex flex-col h-full w-80 flex-shrink-0">
+          <div className="flex flex-col h-full w-96 flex-shrink-0">
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-primary" /> আমার কার্ট</h3>
             </div>
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto p-5 flex flex-col">
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-slate-400">
                   <ShoppingBag className="w-12 h-12 mb-3 text-slate-200" />
                   <p className="font-medium text-sm">কার্ট খালি আছে</p>
                 </div>
-              ) : cart.map((item, i) => (
-                <div key={i} className="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0">
-                  <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {item.product.imageUrl ? (
-                      <img src={item.product.imageUrl} alt={item.product.name} className="w-full h-full object-contain p-0.5" />
-                    ) : (
-                      <Package className="w-5 h-5 text-slate-300" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 text-xs line-clamp-1">{item.product.name}</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      ৳{item.product.price} × {item.qty} = <span className="font-bold text-slate-700">৳{(item.product.price * item.qty).toFixed(2)}</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: Math.max(1, c.qty - 1) } : c))}
-                      className="w-6 h-6 bg-slate-100 rounded-full text-xs font-bold flex items-center justify-center hover:bg-slate-200">−</button>
-                    <span className="w-4 text-center text-xs font-bold">{item.qty}</span>
-                    <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: c.qty + 1 } : c))}
-                      className="w-6 h-6 bg-slate-100 rounded-full text-xs font-bold flex items-center justify-center hover:bg-slate-200">+</button>
-                    <button onClick={() => setCart(prev => prev.filter(c => c.product.id !== item.product.id))} className="ml-1 text-red-400 hover:text-red-600">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+              ) : (
+                <div className="flex flex-col mb-4">
+                  {cart.map((item, i) => (
+                    <div key={i} className="flex gap-4 py-4 relative group border-b border-slate-50 last:border-0">
+                      <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {item.product.imageUrl ? (
+                          <img src={item.product.imageUrl} alt={item.product.name} className="w-full h-full object-contain p-2" />
+                        ) : (
+                          <Package className="w-8 h-8 text-slate-300" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="flex justify-between items-start">
+                           <p className="font-bold text-slate-900 text-base line-clamp-1 pr-2">{item.product.name}</p>
+                           <button onClick={() => setCart(prev => prev.filter(c => c.product.id !== item.product.id))} className="text-slate-300 hover:text-red-500 transition-colors mt-0.5">
+                             <X className="w-4 h-4" />
+                           </button>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">{item.product.category}</p>
+                        <div className="flex items-center justify-between mt-3">
+                           <span className="font-bold text-slate-900 text-base">৳{(item.product.price * item.qty).toFixed(2)}</span>
+                           <div className="flex items-center gap-3 bg-slate-50 rounded-full px-2 py-1 border border-slate-100/50">
+                             <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: Math.max(1, c.qty - 1) } : c))}
+                               className="w-7 h-7 bg-white rounded-full shadow-sm text-slate-600 text-sm font-bold flex items-center justify-center hover:bg-slate-50 transition-colors">−</button>
+                             <span className="w-4 text-center text-sm font-bold text-slate-800">{item.qty}</span>
+                             <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: c.qty + 1 } : c))}
+                               className="w-7 h-7 bg-white rounded-full shadow-sm text-slate-600 text-sm font-bold flex items-center justify-center hover:bg-slate-50 transition-colors">+</button>
+                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
             {cart.length > 0 && (
-              <div className="p-5 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
-                <div className="flex flex-col gap-2 mb-4 border-b border-slate-200/50 pb-4">
-                  <div className="flex justify-between text-slate-500 text-sm">
-                    <span>সাবটোটাল ({cartCount} টি আইটেম)</span>
-                    <span className="font-bold text-slate-700">৳{cartTotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-500 text-sm">
-                    <span>ডেলিভারি চার্জ</span>
-                    <span className="font-medium text-slate-500 text-xs">চেকআউটে যোগ হবে</span>
-                  </div>
-                </div>
+              <div className="p-5 border-t border-slate-100 bg-white z-10 relative">
                 <div className="flex justify-between text-slate-800 mb-4 items-end">
                   <span className="font-bold">সর্বমোট পরিমাণ</span>
                   <span className="text-xl font-black text-primary">৳{cartTotal.toFixed(2)}</span>
                 </div>
-                <button className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors">
+                <button onClick={() => setIsOrderModalOpen(true)} className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25 active:scale-[0.98]">
                   অর্ডার করুন
                 </button>
               </div>
@@ -580,63 +733,64 @@ export default function StorePage() {
               <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-primary" /> আমার কার্ট</h2>
               <button onClick={() => setCartOpen(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
             </div>
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto p-5 flex flex-col">
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-slate-400">
                   <ShoppingBag className="w-12 h-12 mb-3 text-slate-200" />
                   <p className="font-medium">কার্ট খালি আছে</p>
                 </div>
-              ) : cart.map((item, i) => (
-                <div key={i} className="flex items-center gap-3 py-3 border-b border-slate-100">
-                  <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {item.product.imageUrl ? (
-                      <img src={item.product.imageUrl} alt={item.product.name} className="w-full h-full object-contain p-0.5" />
-                    ) : (
-                      <Package className="w-6 h-6 text-slate-300" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 text-sm line-clamp-1">{item.product.name}</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      ৳{item.product.price} × {item.qty} = <span className="font-bold text-slate-700">৳{(item.product.price * item.qty).toFixed(2)}</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: Math.max(1, c.qty - 1) } : c))}
-                      className="w-6 h-6 bg-slate-100 rounded-full text-sm font-bold flex items-center justify-center hover:bg-slate-200">−</button>
-                    <span className="w-5 text-center text-sm font-bold">{item.qty}</span>
-                    <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: c.qty + 1 } : c))}
-                      className="w-6 h-6 bg-slate-100 rounded-full text-sm font-bold flex items-center justify-center hover:bg-slate-200">+</button>
-                    <button onClick={() => setCart(prev => prev.filter(c => c.product.id !== item.product.id))} className="ml-1 text-red-400 hover:text-red-600">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+              ) : (
+                <div className="flex flex-col mb-4">
+                  {cart.map((item, i) => (
+                    <div key={i} className="flex gap-4 py-4 relative group border-b border-slate-50 last:border-0">
+                      <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {item.product.imageUrl ? (
+                          <img src={item.product.imageUrl} alt={item.product.name} className="w-full h-full object-contain p-2" />
+                        ) : (
+                          <Package className="w-8 h-8 text-slate-300" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="flex justify-between items-start">
+                           <p className="font-bold text-slate-900 text-base line-clamp-1 pr-2">{item.product.name}</p>
+                           <button onClick={() => setCart(prev => prev.filter(c => c.product.id !== item.product.id))} className="text-slate-300 hover:text-red-500 transition-colors mt-0.5">
+                             <X className="w-4 h-4" />
+                           </button>
+                        </div>
+                        <p className="text-sm text-slate-400 mt-0.5">{item.product.category}</p>
+                        <div className="flex items-center justify-between mt-3">
+                           <span className="font-bold text-slate-900 text-lg">৳{(item.product.price * item.qty).toFixed(2)}</span>
+                           <div className="flex items-center gap-3 bg-slate-50 rounded-full px-2 py-1 border border-slate-100/50">
+                             <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: Math.max(1, c.qty - 1) } : c))}
+                               className="w-7 h-7 bg-white rounded-full shadow-sm text-slate-600 text-sm font-bold flex items-center justify-center hover:bg-slate-50 transition-colors">−</button>
+                             <span className="w-4 text-center text-sm font-bold text-slate-800">{item.qty}</span>
+                             <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: c.qty + 1 } : c))}
+                               className="w-7 h-7 bg-white rounded-full shadow-sm text-slate-600 text-sm font-bold flex items-center justify-center hover:bg-slate-50 transition-colors">+</button>
+                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
             {cart.length > 0 && (
-              <div className="p-5 border-t border-slate-100">
-                <div className="flex flex-col gap-2 mb-4 border-b border-slate-100 pb-4">
-                  <div className="flex justify-between text-slate-500 text-sm">
-                    <span>সাবটোটাল ({cartCount} টি আইটেম)</span>
-                    <span className="font-bold text-slate-700">৳{cartTotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-500 text-sm">
-                    <span>ডেলিভারি চার্জ</span>
-                    <span className="font-medium text-slate-500 text-xs">চেকআউটে যোগ হবে</span>
-                  </div>
-                </div>
+              <div className="p-5 border-t border-slate-100 bg-white z-10 relative">
                 <div className="flex justify-between text-slate-800 mb-4 items-end">
                   <span className="font-bold">সর্বমোট পরিমাণ</span>
                   <span className="text-xl font-black text-primary">৳{cartTotal.toFixed(2)}</span>
                 </div>
-                <button className="w-full py-3 bg-primary text-white rounded-xl font-black text-lg hover:bg-primary/90 transition-colors">
+                <button onClick={() => setIsOrderModalOpen(true)} className="w-full py-3.5 bg-primary text-white rounded-xl font-black text-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25 active:scale-[0.98]">
                   অর্ডার করুন
                 </button>
               </div>
             )}
           </div>
         </div>
+      )}
+
+      {isOrderModalOpen && (
+        <OrderFormModal onClose={() => setIsOrderModalOpen(false)} total={cartTotal} />
       )}
     </div>
   );

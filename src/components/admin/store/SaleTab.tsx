@@ -155,6 +155,7 @@ function NewSaleModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const [discountType, setDiscountType] = useState<'amount' | 'percentage'>('amount');
   const [discountValue, setDiscountValue] = useState<string>('');
   const [paidAmount, setPaidAmount] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [promiseDate, setPromiseDate] = useState<string>('');
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -214,7 +215,7 @@ function NewSaleModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
     const res = await fetch('/api/store/sales', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerName, customerPhone: customerPhone || null, instituteId: instituteId || null, items, discount: discountAmount, paidAmount: parsedPaid, promiseDate: promiseDate || null }),
+      body: JSON.stringify({ customerName, customerPhone: customerPhone || null, instituteId: instituteId || null, items, discount: discountAmount, paidAmount: parsedPaid, promiseDate: promiseDate || null, paymentMethod }),
     });
     setLoading(false);
     if (res.ok) { onSaved(); onClose(); }
@@ -458,8 +459,14 @@ function NewSaleModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
               {/* Row 2: Received Amount & Save Button */}
               <div className="flex gap-3">
                 <div className="flex-1 bg-white rounded-xl shadow-sm border border-blue-200 flex items-center overflow-hidden h-[44px]">
-                  <div className="pl-3 pr-2 text-[10px] font-bold text-blue-800 uppercase whitespace-nowrap bg-blue-50/50 h-full flex items-center border-r border-blue-100">
-                    জমা প্রদান
+                  <div className="pl-3 pr-2 text-[10px] font-bold text-blue-800 uppercase whitespace-nowrap bg-blue-50/50 h-full flex flex-col justify-center border-r border-blue-100">
+                    <div>জমা প্রদান</div>
+                    <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="bg-transparent font-black focus:outline-none cursor-pointer mt-0.5 text-blue-600">
+                      <option value="Cash">Cash</option>
+                      <option value="bKash">bKash</option>
+                      <option value="Nagad">Nagad</option>
+                      <option value="Bank">Bank</option>
+                    </select>
                   </div>
                   <div className="relative flex-1 flex items-center h-full px-2">
                     <span className="text-lg font-black text-slate-300 ml-1">৳</span>
@@ -645,7 +652,7 @@ export default function SaleTab() {
                   <td className="px-6 py-4 font-medium text-slate-700">{sale.invoiceId}</td>
                   <td className="px-6 py-4 text-slate-600">{new Date(sale.createdAt).toLocaleDateString('bn-BD')}</td>
                   <td className="px-6 py-4 font-medium text-slate-800">{sale.customerName}</td>
-                  <td className="px-6 py-4 text-slate-600">{sale.items.length} টি</td>
+                  <td className="px-6 py-4 text-slate-600">{sale.items.reduce((sum, item) => sum + item.quantity, 0)} টি</td>
                   <td className="px-6 py-4 font-semibold text-slate-700">{sale.totalAmount.toFixed(2)} ৳</td>
                   <td className="px-6 py-4 text-slate-600">{sale.paidAmount.toFixed(2)} ৳</td>
                   <td className="px-6 py-4">

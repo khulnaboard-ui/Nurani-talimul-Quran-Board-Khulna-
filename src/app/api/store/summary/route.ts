@@ -60,8 +60,8 @@ export async function GET(request: Request) {
     const totalReceived = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
     
     // Due is what should have been paid minus what was actually received
-    // Due = (Total Sales - Total Discount) - Total Received
-    const totalDue = Math.max(0, (totalSales - totalDiscount) - totalReceived);
+    // Note: totalSales already has discount subtracted during sale creation.
+    const totalDue = Math.max(0, totalSales - totalReceived);
 
     return NextResponse.json({
       totalSales,

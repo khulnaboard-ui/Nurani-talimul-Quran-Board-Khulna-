@@ -244,7 +244,7 @@ export default function StoreClient({ initialProducts }: { initialProducts: Prod
   };
 
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col bg-slate-50 overflow-hidden">
+    <div className="h-[calc(100vh-200px)] flex flex-col bg-slate-50 overflow-hidden">
       <div className="bg-white border-b border-slate-200 z-30 shadow-sm flex-shrink-0">
         <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 w-1/4">
@@ -528,57 +528,61 @@ export default function StoreClient({ initialProducts }: { initialProducts: Prod
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-black text-slate-800 text-base flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-primary" /> আমার কার্ট</h3>
             </div>
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto p-5 flex flex-col">
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-slate-400">
                   <ShoppingBag className="w-12 h-12 mb-3 text-slate-200" />
                   <p className="font-medium text-sm">কার্ট খালি আছে</p>
                 </div>
-              ) : cart.map((item, i) => (
-                <div key={i} className="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0">
-                  <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Package className="w-5 h-5 text-slate-300" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 text-xs line-clamp-1">{item.product.name}</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      ৳{item.product.price} × {item.qty} = <span className="font-bold text-slate-700">৳{(item.product.price * item.qty).toFixed(2)}</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: Math.max(1, c.qty - 1) } : c))}
-                      className="w-6 h-6 bg-slate-100 rounded-full text-xs font-bold flex items-center justify-center hover:bg-slate-200">−</button>
-                    <span className="w-4 text-center text-xs font-bold">{item.qty}</span>
-                    <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: c.qty + 1 } : c))}
-                      className="w-6 h-6 bg-slate-100 rounded-full text-xs font-bold flex items-center justify-center hover:bg-slate-200">+</button>
-                    <button onClick={() => setCart(prev => prev.filter(c => c.product.id !== item.product.id))} className="ml-1 text-red-400 hover:text-red-600">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+              ) : (
+                <div className="flex flex-col mb-4">
+                  {cart.map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0">
+                      <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Package className="w-5 h-5 text-slate-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-800 text-xs line-clamp-1">{item.product.name}</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          ৳{item.product.price} × {item.qty} = <span className="font-bold text-slate-700">৳{(item.product.price * item.qty).toFixed(2)}</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: Math.max(1, c.qty - 1) } : c))}
+                          className="w-6 h-6 bg-slate-100 rounded-full text-xs font-bold flex items-center justify-center hover:bg-slate-200">−</button>
+                        <span className="w-4 text-center text-xs font-bold">{item.qty}</span>
+                        <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: c.qty + 1 } : c))}
+                          className="w-6 h-6 bg-slate-100 rounded-full text-xs font-bold flex items-center justify-center hover:bg-slate-200">+</button>
+                        <button onClick={() => setCart(prev => prev.filter(c => c.product.id !== item.product.id))} className="ml-1 text-red-400 hover:text-red-600">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+              {cart.length > 0 && (
+                <div className="p-5 border border-slate-100 bg-slate-50/50 rounded-2xl mb-16">
+                  <div className="flex flex-col gap-2 mb-4 border-b border-slate-200/50 pb-4">
+                    <div className="flex justify-between text-slate-500 text-sm">
+                      <span>সাবটোটাল ({cartCount} টি আইটেম)</span>
+                      <span className="font-bold text-slate-700">৳{cartTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-500 text-sm">
+                      <span>ডেলিভারি চার্জ</span>
+                      <span className="font-medium text-slate-500 text-xs">চেকআউটে যোগ হবে</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-slate-800 mb-4 items-end">
+                    <span className="font-bold">সর্বমোট পরিমাণ</span>
+                    <span className="text-xl font-black text-primary">৳{cartTotal.toFixed(2)}</span>
+                  </div>
+                  <button className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors">
+                    অর্ডার করুন
+                  </button>
+                </div>
+              )}
             </div>
-            {cart.length > 0 && (
-              <div className="p-5 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
-                <div className="flex flex-col gap-2 mb-4 border-b border-slate-200/50 pb-4">
-                  <div className="flex justify-between text-slate-500 text-sm">
-                    <span>সাবটোটাল ({cartCount} টি আইটেম)</span>
-                    <span className="font-bold text-slate-700">৳{cartTotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-500 text-sm">
-                    <span>ডেলিভারি চার্জ</span>
-                    <span className="font-medium text-slate-500 text-xs">চেকআউটে যোগ হবে</span>
-                  </div>
-                </div>
-                <div className="flex justify-between text-slate-800 mb-4 items-end">
-                  <span className="font-bold">সর্বমোট পরিমাণ</span>
-                  <span className="text-xl font-black text-primary">৳{cartTotal.toFixed(2)}</span>
-                </div>
-                <button className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors">
-                  অর্ডার করুন
-                </button>
-              </div>
-            )}
           </div>
         </aside>
       </div>
@@ -603,57 +607,61 @@ export default function StoreClient({ initialProducts }: { initialProducts: Prod
               <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-primary" /> আমার কার্ট</h2>
               <button onClick={() => setCartOpen(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
             </div>
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex-1 overflow-y-auto p-5 flex flex-col">
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-slate-400">
                   <ShoppingBag className="w-12 h-12 mb-3 text-slate-200" />
                   <p className="font-medium">কার্ট খালি আছে</p>
                 </div>
-              ) : cart.map((item, i) => (
-                <div key={i} className="flex items-center gap-3 py-3 border-b border-slate-100">
-                  <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Package className="w-6 h-6 text-slate-300" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 text-sm line-clamp-1">{item.product.name}</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      ৳{item.product.price} × {item.qty} = <span className="font-bold text-slate-700">৳{(item.product.price * item.qty).toFixed(2)}</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: Math.max(1, c.qty - 1) } : c))}
-                      className="w-6 h-6 bg-slate-100 rounded-full text-sm font-bold flex items-center justify-center hover:bg-slate-200">−</button>
-                    <span className="w-5 text-center text-sm font-bold">{item.qty}</span>
-                    <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: c.qty + 1 } : c))}
-                      className="w-6 h-6 bg-slate-100 rounded-full text-sm font-bold flex items-center justify-center hover:bg-slate-200">+</button>
-                    <button onClick={() => setCart(prev => prev.filter(c => c.product.id !== item.product.id))} className="ml-1 text-red-400 hover:text-red-600">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+              ) : (
+                <div className="flex flex-col mb-4">
+                  {cart.map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0">
+                      <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Package className="w-6 h-6 text-slate-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-800 text-sm line-clamp-1">{item.product.name}</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          ৳{item.product.price} × {item.qty} = <span className="font-bold text-slate-700">৳{(item.product.price * item.qty).toFixed(2)}</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: Math.max(1, c.qty - 1) } : c))}
+                          className="w-6 h-6 bg-slate-100 rounded-full text-sm font-bold flex items-center justify-center hover:bg-slate-200">−</button>
+                        <span className="w-5 text-center text-sm font-bold">{item.qty}</span>
+                        <button onClick={() => setCart(prev => prev.map(c => c.product.id === item.product.id ? { ...c, qty: c.qty + 1 } : c))}
+                          className="w-6 h-6 bg-slate-100 rounded-full text-sm font-bold flex items-center justify-center hover:bg-slate-200">+</button>
+                        <button onClick={() => setCart(prev => prev.filter(c => c.product.id !== item.product.id))} className="ml-1 text-red-400 hover:text-red-600">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+              {cart.length > 0 && (
+                <div className="p-5 border border-slate-100 bg-slate-50/50 rounded-2xl mb-16">
+                  <div className="flex flex-col gap-2 mb-4 border-b border-slate-200/50 pb-4">
+                    <div className="flex justify-between text-slate-500 text-sm">
+                      <span>সাবটোটাল ({cartCount} টি আইটেম)</span>
+                      <span className="font-bold text-slate-700">৳{cartTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-500 text-sm">
+                      <span>ডেলিভারি চার্জ</span>
+                      <span className="font-medium text-slate-500 text-xs">চেকআউটে যোগ হবে</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-slate-800 mb-4 items-end">
+                    <span className="font-bold">সর্বমোট পরিমাণ</span>
+                    <span className="text-xl font-black text-primary">৳{cartTotal.toFixed(2)}</span>
+                  </div>
+                  <button className="w-full py-3 bg-primary text-white rounded-xl font-black text-lg hover:bg-primary/90 transition-colors">
+                    অর্ডার করুন
+                  </button>
+                </div>
+              )}
             </div>
-            {cart.length > 0 && (
-              <div className="p-5 border-t border-slate-100">
-                <div className="flex flex-col gap-2 mb-4 border-b border-slate-100 pb-4">
-                  <div className="flex justify-between text-slate-500 text-sm">
-                    <span>সাবটোটাল ({cartCount} টি আইটেম)</span>
-                    <span className="font-bold text-slate-700">৳{cartTotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-500 text-sm">
-                    <span>ডেলিভারি চার্জ</span>
-                    <span className="font-medium text-slate-500 text-xs">চেকআউটে যোগ হবে</span>
-                  </div>
-                </div>
-                <div className="flex justify-between text-slate-800 mb-4 items-end">
-                  <span className="font-bold">সর্বমোট পরিমাণ</span>
-                  <span className="text-xl font-black text-primary">৳{cartTotal.toFixed(2)}</span>
-                </div>
-                <button className="w-full py-3 bg-primary text-white rounded-xl font-black text-lg hover:bg-primary/90 transition-colors">
-                  অর্ডার করুন
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}

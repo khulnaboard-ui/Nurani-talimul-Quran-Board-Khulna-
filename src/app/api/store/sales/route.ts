@@ -36,7 +36,7 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!(await verifyAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const { customerName, customerPhone, instituteId, items, notes, discount = 0, paidAmount = 0, promiseDate } = await request.json();
+    const { customerName, customerPhone, instituteId, items, notes, discount = 0, paidAmount = 0, promiseDate, paymentMethod = "Cash" } = await request.json();
     if (!customerName || !items || items.length === 0) {
       return NextResponse.json({ error: "customerName and items are required" }, { status: 400 });
     }
@@ -82,6 +82,20 @@ export async function POST(request: Request) {
       },
       include: { items: { include: { product: true } }, payments: true },
     });
+
+    if (paidAmount > 0) {
+      await (prisma as any).storePayment.create({
+        data: {
+          saleId: sale.id,
+          payer: customerName,
+          purpose: `Payment for Invoice ${invoiceId}`,
+          amount: paidAmount,
+          method: paymentMethod,
+          status: "Completed",
+          notes: notes || "",
+        },
+      });
+    }
 
     return NextResponse.json(sale);
   } catch (error) {

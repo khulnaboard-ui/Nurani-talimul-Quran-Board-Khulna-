@@ -9,7 +9,7 @@ export default function StoreManagementView() {
   const [activeTab, setActiveTab] = useState<'sale' | 'stock' | 'payment'>('sale');
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[600px] flex flex-col">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-visible min-h-[600px] flex flex-col">
       {/* Header & Tabs */}
       <div className="border-b border-slate-200 bg-slate-50/50 pt-6 px-6">
         <div className="mb-6">
