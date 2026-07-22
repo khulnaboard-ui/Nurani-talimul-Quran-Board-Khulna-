@@ -8,7 +8,7 @@ import {
 type Product = {
   id: string; name: string; category: string; price: number;
   stock: number; unit: string; rating?: number; reviews?: number;
-  imageUrl?: string;
+  imageUrl?: string; className?: string; subject?: string;
 };
 
 const STAR_RATINGS: Record<string, { rating: number; reviews: number }> = {};
@@ -25,46 +25,44 @@ function StarDisplay({ rating, reviews }: { rating: number; reviews: number }) {
 }
 
 function ListProductRow({ 
-  product, rating, isFav, toggleFav, addToCart, setDetailProduct 
+  product, index, cartQty, updateCartQty, setDetailProduct 
 }: { 
-  product: Product, rating: any, isFav: boolean, 
-  toggleFav: (id:string)=>void, addToCart: (p:Product, q:number)=>void, setDetailProduct: (p:Product)=>void 
+  product: Product, index: number, cartQty: number,
+  updateCartQty: (p:Product, q:number)=>void, setDetailProduct: (p:Product)=>void 
 }) {
-  const [qty, setQty] = useState(1);
   return (
-    <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
-       <td className="p-4">
-          <div className="flex items-center gap-3">
-             <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 relative overflow-hidden">
-                {product.imageUrl ? (
-                  <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain p-1" />
-                ) : (
-                  <Package className="w-6 h-6 text-slate-300" />
-                )}
-             </div>
-             <div className="flex flex-col">
-                <h3 className="font-bold text-slate-800 text-sm line-clamp-1 cursor-pointer hover:text-primary transition-colors" onClick={() => setDetailProduct(product)}>{product.name}</h3>
-                <StarDisplay rating={rating.rating} reviews={rating.reviews} />
-             </div>
+    <tr className="border-b border-slate-200 hover:bg-slate-50 transition-colors bg-slate-100/50">
+       <td className="p-3 text-center font-bold text-slate-800">{String(index + 1).padStart(2, '0')}</td>
+       <td className="p-2">
+          <div className="w-12 h-12 bg-white rounded flex items-center justify-center flex-shrink-0 mx-auto overflow-hidden shadow-sm">
+             {product.imageUrl ? (
+               <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+             ) : (
+               <Package className="w-6 h-6 text-slate-300" />
+             )}
           </div>
        </td>
-       <td className="p-4 text-sm text-slate-600 font-medium">{product.category}</td>
-       <td className="p-4 font-black text-primary text-lg">৳{product.price}</td>
-       <td className="p-4">
-          <div className="flex items-center justify-end gap-3">
-             <button onClick={() => toggleFav(product.id)} className={`p-1.5 rounded-lg border transition-colors ${isFav ? "border-red-200 bg-red-50 text-red-500" : "border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-400"}`}>
-               <Heart className={`w-4 h-4 ${isFav ? "fill-red-500" : ""}`} />
-             </button>
-             <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-9">
-                <button disabled={qty<=1} onClick={()=>setQty(q=>q-1)} className="px-2.5 h-full hover:bg-slate-100 text-slate-500 disabled:opacity-50 transition-colors">-</button>
-                <span className="text-sm font-bold w-6 text-center text-slate-700">{qty}</span>
-                <button onClick={()=>setQty(q=>q+1)} className="px-2.5 h-full hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors">+</button>
-             </div>
-             <button onClick={()=>{ addToCart(product, qty); setQty(1); }} className="flex items-center gap-1.5 px-4 h-9 bg-primary text-white rounded-lg transition-colors text-sm font-bold hover:bg-primary/90 whitespace-nowrap">
-                <ShoppingCart className="w-4 h-4" /> যোগ
-             </button>
+       <td className="p-3 text-center text-sm font-bold text-slate-700">{String(index + 1).padStart(2, '0')}</td>
+       <td className="p-3">
+          <h3 className="font-bold text-slate-800 text-sm cursor-pointer hover:text-primary transition-colors" onClick={() => setDetailProduct(product)}>{product.name}</h3>
+       </td>
+       <td className="p-3 text-center text-sm font-bold text-slate-600">
+          {product.className ? `${product.className}${product.subject ? ` - ${product.subject}` : ''} - ${product.category}` : product.category}
+       </td>
+       <td className="p-3 text-center font-bold text-slate-800">{product.price.toFixed(2)}</td>
+       <td className="p-3">
+          <div className="flex items-center justify-center gap-1 mx-auto w-fit">
+             <button onClick={()=>updateCartQty(product, Math.max(0, cartQty-1))} className="w-7 h-7 bg-slate-400 text-white flex items-center justify-center rounded-sm font-bold text-lg leading-none">-</button>
+             <input 
+               type="number" 
+               value={cartQty || ""} 
+               onChange={(e) => updateCartQty(product, parseInt(e.target.value) || 0)} 
+               className="w-16 h-7 text-center text-sm font-bold border border-slate-300 rounded-sm outline-none"
+             />
+             <button onClick={()=>updateCartQty(product, cartQty+1)} className="w-7 h-7 bg-[#2f8c5b] hover:bg-[#2f8c5b]/90 text-white flex items-center justify-center rounded-sm font-bold text-lg leading-none">+</button>
           </div>
        </td>
+       <td className="p-3 text-right pr-6 font-bold text-slate-800">{(product.price * cartQty).toFixed(2)}</td>
     </tr>
   );
 }
@@ -91,14 +89,10 @@ function ProductDetailModal({
           <button onClick={onClose} className="absolute top-3 right-3 bg-white/80 hover:bg-white p-2 rounded-full shadow transition-colors">
             <X className="w-4 h-4 text-slate-600" />
           </button>
-          <button onClick={onToggleFav} className={`absolute top-3 left-3 bg-white/80 hover:bg-white p-2 rounded-full shadow transition-colors ${isFav ? "text-red-500" : "text-slate-400"}`}>
-            <Heart className={`w-4 h-4 ${isFav ? "fill-red-500" : ""}`} />
-          </button>
         </div>
         <div className="p-6">
           <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{product.category}</span>
           <h2 className="text-2xl font-black text-slate-800 mt-3 mb-2">{product.name}</h2>
-          <StarDisplay rating={r.rating} reviews={r.reviews} />
           <p className="text-slate-500 mt-3 text-sm leading-relaxed">
             এই পণ্যটি নূরানী তালিমুল কুরআন বোর্ড খুলনার অনুমোদিত প্রকাশনা। শিক্ষার্থীদের জন্য বিশেষভাবে তৈরি এই পণ্যটি উচ্চমানের কাগজ ও উন্নত ছাপায় তৈরি।
           </p>
@@ -265,7 +259,7 @@ export default function StorePage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const [viewMode, setViewMode] = useState<"card" | "list">("list");
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc" | "name" | "rating">("default");
   const [showOnlyInStock, setShowOnlyInStock] = useState(false);
   const [showOnlyFavourites, setShowOnlyFavourites] = useState(false);
@@ -327,6 +321,15 @@ export default function StorePage() {
     setCart(prev => {
       const existing = prev.find(i => i.product.id === product.id);
       if (existing) return prev.map(i => i.product.id === product.id ? { ...i, qty: i.qty + qty } : i);
+      return [...prev, { product, qty }];
+    });
+  };
+
+  const updateCartQty = (product: Product, qty: number) => {
+    setCart(prev => {
+      if (qty <= 0) return prev.filter(i => i.product.id !== product.id);
+      const existing = prev.find(i => i.product.id === product.id);
+      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, qty } : i);
       return [...prev, { product, qty }];
     });
   };
@@ -394,7 +397,6 @@ export default function StorePage() {
               <option value="price-asc">মূল্য: কম থেকে বেশি</option>
               <option value="price-desc">মূল্য: বেশি থেকে কম</option>
               <option value="name">নামানুসারে</option>
-              <option value="rating">রেটিং অনুযায়ী</option>
             </select>
             {/* View Toggle */}
             <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
@@ -491,29 +493,6 @@ export default function StorePage() {
               </div>
             </div>
 
-            {/* Rating Filter */}
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">সর্বনিম্ন রেটিং</p>
-              <div className="flex gap-1">
-                {[0, 3, 4, 5].map(r => (
-                  <button key={r} onClick={() => setRatingFilter(r)}
-                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-colors ${ratingFilter === r ? "bg-amber-400 text-white border-amber-400" : "border-slate-200 text-slate-500 hover:border-amber-300"}`}>
-                    {r === 0 ? "সকল" : `${r}★+`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Toggles */}
-            <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <div onClick={() => setShowOnlyFavourites(!showOnlyFavourites)}
-                  className={`w-10 h-5 rounded-full transition-colors ${showOnlyFavourites ? "bg-red-500" : "bg-slate-200"} relative flex-shrink-0`}>
-                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showOnlyFavourites ? "translate-x-5" : "translate-x-0.5"}`} />
-                </div>
-                <span className="text-sm text-slate-600 font-medium">শুধু পছন্দের পণ্য ❤️</span>
-              </label>
-            </div>
           </div>
         </aside>
 
@@ -564,19 +543,16 @@ export default function StorePage() {
                   <div key={product.id} onClick={() => setDetailProduct(product)} className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden group flex flex-col cursor-pointer">
                     <div className="relative bg-gradient-to-br from-slate-50 to-slate-100 aspect-[4/3] w-full flex items-center justify-center overflow-hidden">
                       {product.imageUrl ? (
-                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300" />
+                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       ) : (
                         <Package className="w-16 h-16 text-slate-300 group-hover:scale-105 transition-transform" />
                       )}
-                      <button onClick={(e) => { e.stopPropagation(); toggleFav(product.id); }}
-                        className={`absolute top-3 right-3 p-1.5 rounded-full bg-white/80 shadow hover:bg-white transition-colors ${isFav ? "text-red-500" : "text-slate-300"}`}>
-                        <Heart className={`w-4 h-4 ${isFav ? "fill-red-500" : ""}`} />
-                      </button>
                     </div>
                     <div className="p-4 flex flex-col flex-1">
-                      <span className="text-xs text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-full w-fit mb-2">{product.category}</span>
+                      <span className="text-xs text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-full w-fit mb-2">
+                        {product.className ? `${product.className}${product.subject ? ` - ${product.subject}` : ''} - ${product.category}` : product.category}
+                      </span>
                       <h3 className="font-bold text-slate-800 mb-1 line-clamp-1">{product.name}</h3>
-                      <StarDisplay rating={r.rating} reviews={r.reviews} />
                       <div className="mt-auto pt-3 flex items-center justify-between border-t border-slate-50 mt-3">
                         <span className="text-xl font-black text-primary">৳{product.price}</span>
                         <div className="flex gap-2">
@@ -596,53 +572,65 @@ export default function StorePage() {
 
           {/* LIST VIEW */}
           {viewMode === "list" && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm">
-                    <th className="p-4 font-bold rounded-tl-2xl">পণ্য</th>
-                    <th className="p-4 font-bold">ক্যাটাগরি</th>
-                    <th className="p-4 font-bold">মূল্য</th>
-                    <th className="p-4 font-bold text-right rounded-tr-2xl">অ্যাকশন</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {!loading && filtered.length === 0 && (
-                    <tr>
-                      <td colSpan={5}>
-                        <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-                          <Package className="w-16 h-16 mb-4 text-slate-200" />
-                          <p className="text-lg font-bold">কোনো পণ্য পাওয়া যায়নি</p>
-                          <p className="text-sm mt-1">অনুসন্ধান বা ফিল্টার পরিবর্তন করুন</p>
-                        </div>
-                      </td>
+            <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex-1 mb-4 flex flex-col">
+              <div className="bg-[#e8f3ec] text-[#2f8c5b] py-3 text-center font-black text-xl border-b border-slate-200">
+                বই ও স্টেশনারী আইটেম অনলাইন-এ অর্ডার করুন
+              </div>
+              <div className="flex-1 overflow-auto">
+                <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-[#2f8c5b] text-white text-sm">
+                      <th className="p-3 font-bold text-center border-r border-white/20 w-16">ক্রম</th>
+                      <th className="p-3 font-bold text-center border-r border-white/20 w-20">ছবি</th>
+                      <th className="p-3 font-bold text-center border-r border-white/20 w-20">কোড</th>
+                      <th className="p-3 font-bold text-center border-r border-white/20">পণ্যের নাম</th>
+                      <th className="p-3 font-bold text-center border-r border-white/20 w-32">ক্যাটাগরি</th>
+                      <th className="p-3 font-bold text-center border-r border-white/20 w-32">মূল্য(৳)</th>
+                      <th className="p-3 font-bold text-center border-r border-white/20 w-48">পরিমাণ</th>
+                      <th className="p-3 font-bold text-right pr-6 w-36">পরিমাণ*মূল্য(৳)</th>
                     </tr>
-                  )}
-                  {loading ? Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b border-slate-100 animate-pulse">
-                      <td className="p-4 flex gap-4 items-center">
-                        <div className="w-12 h-12 bg-slate-100 rounded-xl flex-shrink-0" />
-                        <div className="flex flex-col gap-2 w-full">
-                          <div className="h-4 bg-slate-100 rounded w-1/2" />
-                          <div className="h-3 bg-slate-100 rounded w-1/3" />
-                        </div>
-                      </td>
-                      <td className="p-4"><div className="h-4 bg-slate-100 rounded w-16" /></td>
-                      <td className="p-4"><div className="h-4 bg-slate-100 rounded w-16" /></td>
-                      <td className="p-4 flex justify-end"><div className="h-8 bg-slate-100 rounded w-24" /></td>
+                  </thead>
+                  <tbody>
+                    {!loading && filtered.length === 0 && (
+                      <tr>
+                        <td colSpan={8}>
+                          <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+                            <Package className="w-16 h-16 mb-4 text-slate-200" />
+                            <p className="text-lg font-bold">কোনো পণ্য পাওয়া যায়নি</p>
+                            <p className="text-sm mt-1">অনুসন্ধান বা ফিল্টার পরিবর্তন করুন</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {loading ? Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i} className="border-b border-slate-100 animate-pulse">
+                        <td colSpan={8} className="p-4"><div className="h-8 bg-slate-100 rounded w-full" /></td>
+                      </tr>
+                    )) : filtered.map((product, index) => {
+                      const cartItem = cart.find(c => c.product.id === product.id);
+                      return (
+                        <ListProductRow 
+                          key={product.id} product={product} index={index}
+                          cartQty={cartItem ? cartItem.qty : 0} 
+                          updateCartQty={updateCartQty} setDetailProduct={setDetailProduct} 
+                        />
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="sticky bottom-0 z-10 bg-white">
+                    <tr className="bg-slate-50 font-bold border-t border-slate-200">
+                      <td colSpan={7} className="p-4 text-right text-slate-800">সর্বমোট অর্ডারকৃত পণ্যের মূল্য(৳) =</td>
+                      <td className="p-4 text-right pr-6 text-lg text-slate-900">{cartTotal.toFixed(2)}</td>
                     </tr>
-                  )) : filtered.map(product => {
-                    const r = getProductRating(product.id);
-                    const isFav = favourites.has(product.id);
-                    return (
-                      <ListProductRow 
-                        key={product.id} product={product} rating={r} isFav={isFav} 
-                        toggleFav={toggleFav} addToCart={addToCart} setDetailProduct={setDetailProduct} 
-                      />
-                    );
-                  })}
-                </tbody>
-              </table>
+                  </tfoot>
+                </table>
+              </div>
+              <div className="bg-white border-t border-slate-200 p-6 flex flex-col items-center">
+                 <p className="text-red-500 font-bold text-lg mb-4 text-center">অর্ডারকৃত পণ্যের পরিমাণ সঠিকভাবে বসানোর পর নিচের "বিলে যুক্ত করুন" বাটনে ক্লিক করুন</p>
+                 <button onClick={() => setIsOrderModalOpen(true)} className="px-8 py-3 bg-[#2d3282] hover:bg-[#2d3282]/90 text-white rounded font-bold transition-colors shadow-md">
+                   বিলে যুক্ত করুন
+                 </button>
+              </div>
             </div>
           )}
           </div>

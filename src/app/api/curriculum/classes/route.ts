@@ -6,7 +6,8 @@ export async function GET() {
     const classes = await prisma.curriculumClass.findMany({
       orderBy: { order: 'asc' },
       include: {
-        books: true
+        books: true,
+        examYears: true
       }
     });
     return NextResponse.json(classes);
@@ -29,6 +30,15 @@ export async function POST(request: Request) {
         order: data.order || 0
       }
     });
+
+    if (data.year) {
+      await prisma.curriculumExamYear.create({
+        data: {
+          year: data.year,
+          classId: newClass.id
+        }
+      });
+    }
 
     return NextResponse.json(newClass, { status: 201 });
   } catch (error) {

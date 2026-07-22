@@ -39,3 +39,28 @@ export async function DELETE(
     return NextResponse.json({ error: "Failed to delete category" }, { status: 500 });
   }
 }
+
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  if (!(await verifyAdmin())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  try {
+    const id = params.id;
+    const { name, isClassWise } = await request.json();
+    if (!id || !name) return NextResponse.json({ error: "ID and name are required" }, { status: 400 });
+
+    const updated = await (prisma as any).storeCategory.update({
+      where: { id },
+      data: { name, isClassWise },
+    });
+    
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("Failed to update category:", error);
+    return NextResponse.json({ error: "Failed to update category" }, { status: 500 });
+  }
+}

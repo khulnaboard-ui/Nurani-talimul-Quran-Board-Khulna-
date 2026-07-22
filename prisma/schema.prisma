@@ -113,19 +113,21 @@ model StoreCategory {
 }
 
 model StoreProduct {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  category  String
-  price     Float
-  stock     Int      @default(0)
-  unit      String?  @default("টি")
-  imageUrl  String?
-  barcode   String?  @unique
-  className String?
-  subject   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  saleItems StoreSaleItem[]
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  category    String
+  price       Float
+  stock       Int      @default(0)
+  unit        String?  @default("টি")
+  imageUrl    String?
+  barcode     String?  @unique
+  className   String?
+  subject     String?
+  visibility  String   @default("stationary")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  saleItems   StoreSaleItem[]
   stockHistory StockHistory[]
 }
 

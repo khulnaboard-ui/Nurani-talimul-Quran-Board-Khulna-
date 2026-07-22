@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Crop, Upload, X, ZoomIn } from 'lucide-react';
 
-export default function ImageCropper({ onCropComplete, onCancel }: { onCropComplete: (file: Blob, previewUrl: string, sizeKb: number) => void, onCancel: () => void }) {
+export default function ImageCropper({ initialFile, onCropComplete, onCancel }: { initialFile?: File | null, onCropComplete: (file: Blob, previewUrl: string, sizeKb: number) => void, onCancel: () => void }) {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -24,6 +24,19 @@ export default function ImageCropper({ onCropComplete, onCancel }: { onCropCompl
       setPan({ x: 0, y: 0 });
     };
   };
+
+  useEffect(() => {
+    if (initialFile) {
+      const url = URL.createObjectURL(initialFile);
+      const image = new Image();
+      image.src = url;
+      image.onload = () => {
+        setImg(image);
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+      };
+    }
+  }, [initialFile]);
 
   useEffect(() => {
     if (img && canvasRef.current) {

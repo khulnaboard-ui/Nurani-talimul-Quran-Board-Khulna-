@@ -8,6 +8,18 @@ import PaymentTab from './PaymentTab';
 export default function StoreManagementView() {
   const [activeTab, setActiveTab] = useState<'sale' | 'stock' | 'payment'>('sale');
 
+  React.useEffect(() => {
+    const saved = localStorage.getItem('store_active_tab');
+    if (saved === 'sale' || saved === 'stock' || saved === 'payment') {
+      setActiveTab(saved);
+    }
+  }, []);
+
+  const handleTabChange = (tab: 'sale' | 'stock' | 'payment') => {
+    setActiveTab(tab);
+    localStorage.setItem('store_active_tab', tab);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-visible min-h-[600px] flex flex-col">
       {/* Header & Tabs */}
@@ -19,7 +31,7 @@ export default function StoreManagementView() {
         
         <div className="flex gap-6 overflow-x-auto">
           <button
-            onClick={() => setActiveTab('sale')}
+            onClick={() => handleTabChange('sale')}
             className={`flex items-center gap-2 pb-4 px-2 border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'sale' 
                 ? 'border-primary text-primary font-bold' 
@@ -31,7 +43,7 @@ export default function StoreManagementView() {
           </button>
           
           <button
-            onClick={() => setActiveTab('stock')}
+            onClick={() => handleTabChange('stock')}
             className={`flex items-center gap-2 pb-4 px-2 border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'stock' 
                 ? 'border-blue-600 text-blue-600 font-bold' 
@@ -43,7 +55,7 @@ export default function StoreManagementView() {
           </button>
 
           <button
-            onClick={() => setActiveTab('payment')}
+            onClick={() => handleTabChange('payment')}
             className={`flex items-center gap-2 pb-4 px-2 border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'payment' 
                 ? 'border-purple-600 text-purple-600 font-bold' 

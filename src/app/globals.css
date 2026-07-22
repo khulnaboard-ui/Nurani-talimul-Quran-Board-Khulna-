@@ -3,6 +3,12 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  a, button, input, select, textarea, [role="button"], [tabindex="0"] {
+    @apply transition-all duration-300 ease-in-out;
+  }
+}
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 240, 253, 244; /* green-50 */
@@ -24,6 +30,30 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Custom Thin Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
 /* Ensure images in the Quill editor scale correctly and don't overflow */

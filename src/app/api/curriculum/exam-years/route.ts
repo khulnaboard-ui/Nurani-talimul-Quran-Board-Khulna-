@@ -4,9 +4,17 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const classId = searchParams.get('classId');
-  if (!classId) return NextResponse.json({ error: 'classId is required' }, { status: 400 });
 
   try {
+    if (!classId) {
+      const distinctYears = await prisma.curriculumExamYear.findMany({
+        select: { year: true },
+        distinct: ['year'],
+        orderBy: { year: 'desc' }
+      });
+      return NextResponse.json(distinctYears);
+    }
+
     const years = await prisma.curriculumExamYear.findMany({
       where: { classId },
       include: {
@@ -27,17 +35,45 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    if (!data.year || !data.classId) {
-      return NextResponse.json({ error: 'year and classId are required' }, { status: 400 });
+    if (!data.year) {
+      return NextResponse.json({ error: 'year is required' }, { status: 400 });
     }
 
-    const newYear = await prisma.curriculumExamYear.create({
-      data: {
-        year: data.year,
-        classId: data.classId
+    // Ensure the anchor class exists so years can exist without visible classes
+    let anchorClass = await prisma.curriculumClass.findFirst({ where: { name: '_YEAR_ANCHOR_' } });
+    if (!anchorClass) {
+      anchorClass = await prisma.curriculumClass.create({ data: { name: '_YEAR_ANCHOR_', order: -1 } });
+    }
+
+    let targetClassIds: string[] = [anchorClass.id];
+
+    if (data.copyFromPrevious) {
+      const previousYearRecord = await prisma.curriculumExamYear.findFirst({
+        orderBy: { year: 'desc' },
+        select: { year: true }
+      });
+
+      if (previousYearRecord) {
+        const previousYearClasses = await prisma.curriculumExamYear.findMany({
+          where: { year: previousYearRecord.year },
+          select: { classId: true }
+        });
+        const prevIds = previousYearClasses.map(record => record.classId).filter(id => id !== anchorClass!.id);
+        targetClassIds = [...targetClassIds, ...prevIds];
       }
+    }
+
+    const operations = targetClassIds.map(classId => {
+      return prisma.curriculumExamYear.create({
+        data: {
+          year: data.year,
+          classId: classId
+        }
+      });
     });
-    return NextResponse.json(newYear, { status: 201 });
+
+    await prisma.$transaction(operations);
+    return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create exam year' }, { status: 500 });
   }
