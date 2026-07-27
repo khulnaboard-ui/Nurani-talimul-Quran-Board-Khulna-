@@ -14,22 +14,28 @@ const shortcuts = [
 
 export default function ShortcutCards() {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 h-full">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 h-full">
       {shortcuts.map((card) => (
         <Link 
           key={card.id} 
           href={card.link}
           className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col h-full group block"
         >
-          <div className="w-14 h-14 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all">
-            {card.icon}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 flex-shrink-0 bg-primary/10 text-primary rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:bg-primary/20 transition-all">
+              {card.icon}
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800 leading-tight mb-1">{card.title}</h3>
+              <p className="text-sm text-slate-500 line-clamp-1">{card.subtitle}</p>
+            </div>
           </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-1">{card.title}</h3>
-          <p className="text-sm text-slate-500 mb-6 flex-1">{card.subtitle}</p>
-          <div 
-            className="inline-flex justify-center items-center px-4 py-2 bg-slate-100 group-hover:bg-primary text-slate-700 group-hover:text-white text-sm font-semibold rounded-lg transition-colors w-max"
-          >
-            তালিকা দেখুন
+          <div className="flex justify-end mt-auto pt-2">
+            <div 
+              className="inline-flex justify-center items-center px-4 py-2 bg-slate-100 group-hover:bg-primary/10 text-slate-700 group-hover:text-primary text-sm font-semibold rounded-lg transition-colors"
+            >
+              তালিকা দেখুন
+            </div>
           </div>
         </Link>
       ))}

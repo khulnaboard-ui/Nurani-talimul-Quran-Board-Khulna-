@@ -12,8 +12,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Code is required" }, { status: 400 });
     }
 
-    const madrasa = await (prisma as any).madrasa.findUnique({
-      where: { code },
+    const normalizedCode = code.replace(/[০-৯]/g, d => '0123456789'[d.charCodeAt(0) - 2534]);
+
+    const madrasa = await (prisma as any).madrasa.findFirst({
+      where: {
+        OR: [
+          { code: normalizedCode },
+          { contactNo: { contains: normalizedCode } },
+          { code },
+          { contactNo: { contains: code } }
+        ]
+      },
     });
 
     if (!madrasa) {

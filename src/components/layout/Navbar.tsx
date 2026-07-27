@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { useState } from 'react';
-import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard } from "lucide-react";
+import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, ShoppingBag, BookOpen, ClipboardList, MapPin, Building2, Users, FileText, Settings } from "lucide-react";
 
 type UserPayload = {
   id: string;
@@ -212,16 +212,15 @@ export default function Navbar({ user }: { user?: UserPayload }) {
       </div>
 
       {/* Mobile Navigation (App Sidebar Style) */}
-      {isMobileMenuOpen && (
-        <div className="xl:hidden fixed inset-0 z-[60] flex">
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
-            onClick={() => setIsMobileMenuOpen(false)}
-          ></div>
-          
-          {/* Sidebar Drawer */}
-          <div className="relative w-72 max-w-[85%] bg-white h-full shadow-2xl overflow-y-auto flex flex-col animate-in slide-in-from-left duration-150">
+      <div className={`xl:hidden fixed inset-0 z-[60] flex transition-all duration-300 ${isMobileMenuOpen ? "visible" : "invisible pointer-events-none"}`}>
+        {/* Backdrop */}
+        <div 
+          className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isMobileMenuOpen ? "opacity-100" : "opacity-0"}`} 
+          onClick={() => setIsMobileMenuOpen(false)}
+        ></div>
+        
+        {/* Sidebar Drawer */}
+        <div className={`relative w-72 max-w-[85%] bg-white h-full shadow-2xl overflow-y-auto flex flex-col transition-transform duration-300 ease-out ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
             <div className="sticky top-0 z-10 p-4 flex items-center justify-between border-b border-slate-100 bg-primary">
               <span className="text-xl font-bold text-white">মেনু</span>
               <button 
@@ -250,9 +249,14 @@ export default function Navbar({ user }: { user?: UserPayload }) {
                 <div className="flex flex-col gap-2 mt-2">
                   {[
                     { id: "dashboard", icon: LayoutDashboard, label: "ড্যাশবোর্ড" },
-                    { id: "users", icon: User, label: "ইউজার পরিচালনা" },
-                    { id: "reports", icon: LayoutDashboard, label: "রিপোর্ট" },
-                    { id: "settings", icon: LayoutDashboard, label: "সেটিংস" },
+                    { id: "store", icon: ShoppingBag, label: "স্টোর পরিচালনা" },
+                    { id: "curriculum", icon: BookOpen, label: "কারিকুলাম" },
+                    { id: "applications", icon: ClipboardList, label: "আবেদন" },
+                    { id: "locations", icon: MapPin, label: "লোকেশন পরিচালনা" },
+                    { id: "madrasas", icon: Building2, label: "মাদরাসা পরিচালনা" },
+                    { id: "users", icon: Users, label: "ইউজার পরিচালনা" },
+                    { id: "reports", icon: FileText, label: "রিপোর্ট" },
+                    { id: "settings", icon: Settings, label: "সেটিংস" },
                   ].map((item) => (
                     <Link
                       key={item.id}
@@ -332,7 +336,6 @@ export default function Navbar({ user }: { user?: UserPayload }) {
             </div>
           </div>
         </div>
-      )}
     </header>
   );
 }

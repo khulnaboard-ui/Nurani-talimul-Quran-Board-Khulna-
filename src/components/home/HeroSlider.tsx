@@ -24,7 +24,7 @@ const slides = [
   },
 ];
 
-export default function HeroSlider() {
+export default function HeroSlider({ isMadrasa = false }: { isMadrasa?: boolean }) {
   const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
@@ -74,12 +74,14 @@ export default function HeroSlider() {
         
         {/* Static Buttons */}
         <div className="flex justify-center gap-4 flex-wrap">
-          <Link 
-            href="/register" 
-            className="bg-white hover:bg-gray-100 text-primary px-4 py-1.5 rounded-full font-bold transition-all shadow-md text-xs md:text-sm hover:scale-105"
-          >
-            মাদরাসা নিবন্ধন করুন
-          </Link>
+          {!isMadrasa && (
+            <Link 
+              href="/register" 
+              className="bg-white hover:bg-gray-100 text-primary px-4 py-1.5 rounded-full font-bold transition-all shadow-md text-xs md:text-sm hover:scale-105"
+            >
+              মাদরাসা নিবন্ধন করুন
+            </Link>
+          )}
           <Link 
             href="/about" 
             className="bg-white/20 hover:bg-white/30 text-white px-4 py-1.5 rounded-full font-bold transition-all shadow-md text-xs md:text-sm backdrop-blur-md border border-white/30 hover:scale-105"

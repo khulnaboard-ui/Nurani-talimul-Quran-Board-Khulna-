@@ -20,18 +20,23 @@ export default function StoreManagementView() {
     localStorage.setItem('store_active_tab', tab);
   };
 
+  const handleTabClick = (e: React.MouseEvent<HTMLButtonElement>, tab: 'sale' | 'stock' | 'payment') => {
+    handleTabChange(tab);
+    e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  };
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-visible min-h-[600px] flex flex-col">
+    <div className="bg-transparent md:bg-white md:rounded-2xl md:shadow-sm md:border md:border-slate-100 overflow-visible min-h-[600px] flex flex-col -mx-3 md:mx-0">
       {/* Header & Tabs */}
-      <div className="border-b border-slate-200 bg-slate-50/50 pt-6 px-6">
-        <div className="mb-6">
+      <div className="border-b border-slate-200 md:bg-slate-50/50 pt-2 md:pt-6 px-3 md:px-6">
+        <div className="hidden md:block mb-6">
           <h2 className="text-2xl font-bold text-slate-800">স্টোর পরিচালনা</h2>
           <p className="text-slate-500 text-sm mt-1">বই ও স্টেশনারি স্টক, বিক্রয় এবং পেমেন্ট পরিচালনা করুন।</p>
         </div>
         
-        <div className="flex gap-6 overflow-x-auto">
+        <div className="flex gap-6 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <button
-            onClick={() => handleTabChange('sale')}
+            onClick={(e) => handleTabClick(e, 'sale')}
             className={`flex items-center gap-2 pb-4 px-2 border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'sale' 
                 ? 'border-primary text-primary font-bold' 
@@ -43,7 +48,7 @@ export default function StoreManagementView() {
           </button>
           
           <button
-            onClick={() => handleTabChange('stock')}
+            onClick={(e) => handleTabClick(e, 'stock')}
             className={`flex items-center gap-2 pb-4 px-2 border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'stock' 
                 ? 'border-blue-600 text-blue-600 font-bold' 
@@ -55,7 +60,7 @@ export default function StoreManagementView() {
           </button>
 
           <button
-            onClick={() => handleTabChange('payment')}
+            onClick={(e) => handleTabClick(e, 'payment')}
             className={`flex items-center gap-2 pb-4 px-2 border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'payment' 
                 ? 'border-purple-600 text-purple-600 font-bold' 
@@ -69,7 +74,7 @@ export default function StoreManagementView() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 p-6 bg-white overflow-visible">
+      <div className="flex-1 px-3 py-4 md:p-6 bg-transparent md:bg-white overflow-visible">
         {activeTab === 'sale' && <SaleTab />}
         {activeTab === 'stock' && <StockTab />}
         {activeTab === 'payment' && <PaymentTab />}

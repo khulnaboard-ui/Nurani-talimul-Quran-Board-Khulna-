@@ -48,9 +48,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     
     if (body.unit !== undefined) data.unit = body.unit;
     if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl;
-    if (body.barcode !== undefined) data.barcode = body.barcode ? body.barcode.trim() : null;
+    if (body.barcode !== undefined) {
+      data.barcode = body.barcode?.trim() ? body.barcode.trim() : `__NO_BARCODE_${Date.now()}_${Math.random()}__`;
+    }
     if (body.className !== undefined) data.className = body.className;
-    if (body.subject !== undefined) data.subject = body.subject;
+    if (body.description !== undefined) data.description = body.description;
     const product = await (prisma as any).storeProduct.update({ where: { id: params.id }, data });
     return NextResponse.json(product);
   } catch (error: any) {

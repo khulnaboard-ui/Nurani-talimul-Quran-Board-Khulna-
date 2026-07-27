@@ -289,7 +289,9 @@ export default function PaymentTab() {
             <AlertCircle className="w-5 h-5" />
             <h3 className="text-lg">পেমেন্ট ফলো-আপ (Follow-ups)</h3>
           </div>
-          <div className="overflow-visible">
+          
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left bg-white rounded-lg overflow-visible border border-red-100">
               <thead>
                 <tr className="bg-red-100/50 text-red-800 text-sm border-b border-red-100">
@@ -335,54 +337,108 @@ export default function PaymentTab() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden flex flex-col gap-3 mt-3">
+            {dueSales.length === 0 ? (
+               <div className="text-center p-4 text-sm text-red-400">কোনো বকেয়া নেই</div>
+            ) : dueSales.map(sale => {
+              const hasPromiseDate = !!sale.promiseDate;
+              const isOverdue = hasPromiseDate && new Date(sale.promiseDate).getTime() < new Date().getTime();
+              return (
+                <div key={sale.id} className="bg-white p-3 rounded-xl border border-red-100 shadow-sm flex flex-col gap-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-slate-800">{sale.customerName}</p>
+                      <p className="text-xs text-slate-500">{sale.invoiceId}</p>
+                    </div>
+                    <div>
+                        {!hasPromiseDate ? (
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded">নির্ধারিত নয়</span>
+                        ) : isOverdue ? (
+                          <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">মেয়াদোত্তীর্ণ</span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded">অপেক্ষমান</span>
+                        )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center text-sm mt-1">
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">বকেয়া (Due)</p>
+                      <p className="font-bold text-red-600">{(sale.totalAmount - sale.paidAmount).toFixed(2)} ৳</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-400 mb-0.5">প্রতিশ্রুতির তারিখ</p>
+                      <p className="font-medium text-slate-700">{hasPromiseDate ? new Date(sale.promiseDate).toLocaleDateString('bn-BD') : '-'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center mt-2 pt-2 border-t border-red-50">
+                    <span className="text-xs text-slate-500">{sale.customerPhone || 'মোবাইল নং নেই'}</span>
+                    {sale.customerPhone && (
+                      <a href={`tel:${sale.customerPhone}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 font-bold text-xs rounded-lg transition-colors">
+                        <Phone className="w-3.5 h-3.5" /> কল করুন
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {subTab !== 'followup' && (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4">
-          <div className="bg-blue-100 p-3 rounded-full text-blue-600"><DollarSign className="w-6 h-6"/></div>
-          <div>
-            <p className="text-sm font-bold text-slate-500">মোট বিক্রয় (Total Sales)</p>
-            <p className="text-2xl font-black text-slate-800">{summary.totalSales.toFixed(2)} ৳</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                <div className="bg-blue-100 p-1.5 sm:p-3 rounded-md sm:rounded-full text-blue-600"><DollarSign className="w-4 h-4 sm:w-6 sm:h-6"/></div>
+                <p className="text-xs sm:text-sm font-bold text-slate-500 leading-tight">মোট বিক্রয়<span className="hidden sm:inline"> (Sales)</span></p>
+              </div>
+              <p className="text-base sm:text-2xl font-black text-slate-800">{summary.totalSales.toFixed(2)} ৳</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                <div className="bg-emerald-100 p-1.5 sm:p-3 rounded-md sm:rounded-full text-emerald-600"><Wallet className="w-4 h-4 sm:w-6 sm:h-6"/></div>
+                <p className="text-xs sm:text-sm font-bold text-slate-500 leading-tight">মোট গৃহীত<span className="hidden sm:inline"> (Received)</span></p>
+              </div>
+              <p className="text-base sm:text-2xl font-black text-slate-800">{summary.totalReceived.toFixed(2)} ৳</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                <div className="bg-orange-100 p-1.5 sm:p-3 rounded-md sm:rounded-full text-orange-600"><Percent className="w-4 h-4 sm:w-6 sm:h-6"/></div>
+                <p className="text-xs sm:text-sm font-bold text-slate-500 leading-tight">মোট ছাড়<span className="hidden sm:inline"> (Discount)</span></p>
+              </div>
+              <p className="text-base sm:text-2xl font-black text-slate-800">{summary.totalDiscount.toFixed(2)} ৳</p>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                <div className="bg-red-100 p-1.5 sm:p-3 rounded-md sm:rounded-full text-red-600"><AlertCircle className="w-4 h-4 sm:w-6 sm:h-6"/></div>
+                <p className="text-xs sm:text-sm font-bold text-slate-500 leading-tight">মোট বকেয়া<span className="hidden sm:inline"> (Due)</span></p>
+              </div>
+              <p className="text-base sm:text-2xl font-black text-red-600">{summary.totalDue.toFixed(2)} ৳</p>
+            </div>
           </div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4">
-          <div className="bg-emerald-100 p-3 rounded-full text-emerald-600"><Wallet className="w-6 h-6"/></div>
-          <div>
-            <p className="text-sm font-bold text-slate-500">মোট গৃহীত (Received)</p>
-            <p className="text-2xl font-black text-slate-800">{summary.totalReceived.toFixed(2)} ৳</p>
-          </div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4">
-          <div className="bg-orange-100 p-3 rounded-full text-orange-600"><Percent className="w-6 h-6"/></div>
-          <div>
-            <p className="text-sm font-bold text-slate-500">মোট ছাড় (Discount)</p>
-            <p className="text-2xl font-black text-slate-800">{summary.totalDiscount.toFixed(2)} ৳</p>
-          </div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4">
-          <div className="bg-red-100 p-3 rounded-full text-red-600"><AlertCircle className="w-6 h-6"/></div>
-          <div>
-            <p className="text-sm font-bold text-slate-500">মোট বকেয়া (Due)</p>
-            <p className="text-2xl font-black text-red-600">{summary.totalDue.toFixed(2)} ৳</p>
-          </div>
-        </div>
-      </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="relative w-full sm:w-96 flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <input type="text" placeholder="Search payer or purpose..." value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              lang="en"
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all" />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex gap-2 w-full sm:w-auto flex-1">
+          <div className="relative flex-1 sm:w-96 flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input type="text" placeholder="প্রদানকারী বা উদ্দেশ্য দিয়ে খুঁজুন..." value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                lang="en"
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all" />
+            </div>
+            <button onClick={() => setShowDateFilter(true)} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap hidden sm:flex">
+              <Filter className="w-4 h-4 text-purple-600"/> {dateRange.label}
+            </button>
           </div>
-          <button onClick={() => setShowDateFilter(true)} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap">
-            <Filter className="w-4 h-4 text-purple-600"/> {dateRange.label}
+          <button onClick={() => setShowModal(true)} className="sm:hidden flex-shrink-0 flex items-center justify-center w-10 h-10 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm">
+            <Plus className="w-5 h-5" />
           </button>
         </div>
         {showDateFilter && (
@@ -391,7 +447,15 @@ export default function PaymentTab() {
             onApply={(start, end, label) => { setDateRange({ start, end, label }); setShowDateFilter(false); }} 
           />
         )}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        
+        {/* Mobile Date Filter */}
+        <div className="sm:hidden w-full">
+          <button onClick={() => setShowDateFilter(true)} className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+            <Filter className="w-4 h-4 text-purple-600"/> {dateRange.label}
+          </button>
+        </div>
+
+        <div className="hidden sm:flex items-center gap-3 w-full sm:w-auto">
           <button onClick={() => {
             const csv = ['প্রদানকারী,উদ্দেশ্য,অ্যামাউন্ট,মাধ্যম,স্ট্যাটাস,তারিখ', ...filtered.map(p => `${p.payer},${p.purpose},${p.amount},${p.method},${p.status},${new Date(p.createdAt).toLocaleDateString()}`)].join('\n');
             const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
@@ -405,8 +469,9 @@ export default function PaymentTab() {
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-xl overflow-visible bg-white min-h-[300px]">
-        <div className="overflow-visible">
+      <div className="md:border md:border-slate-200 md:rounded-xl md:bg-white min-h-[300px] overflow-visible md:overflow-hidden">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto min-w-full">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
@@ -450,6 +515,40 @@ export default function PaymentTab() {
               ))}
             </tbody>
           </table>
+        </div>
+        
+        {/* Mobile Cards */}
+        <div className="md:hidden flex flex-col gap-3 min-h-[300px]">
+          {loading ? (
+            <div className="p-8 text-center text-slate-400">লোড হচ্ছে...</div>
+          ) : filtered.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 bg-white border border-slate-200 rounded-xl">কোনো পেমেন্ট পাওয়া যায়নি</div>
+          ) : filtered.map(payment => {
+            const isPartial = payment.status === 'Partial' || (payment.sale && payment.sale.totalAmount > payment.sale.paidAmount);
+            return (
+              <div key={payment.id} className="p-4 flex flex-col gap-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-bold text-slate-800">{payment.payer}</p>
+                    <p className="text-sm text-slate-500">{new Date(payment.createdAt).toLocaleDateString('bn-BD')}</p>
+                  </div>
+                  <ActionDropdown payment={payment} onUpdate={fetchPayments} />
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-600">{payment.purpose}</span>
+                  <span className={`px-2 py-1 rounded-md text-xs font-medium ${payment.method === 'Cash' ? 'bg-slate-100 text-slate-600' : payment.method === 'bKash' ? 'bg-pink-100 text-pink-700' : payment.method === 'Nagad' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {payment.method}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-bold text-slate-800">অ্যামাউন্ট: {payment.amount.toFixed(2)} ৳</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${!isPartial ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {!isPartial ? 'সম্পন্ন' : 'আংশিক'}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
         </>

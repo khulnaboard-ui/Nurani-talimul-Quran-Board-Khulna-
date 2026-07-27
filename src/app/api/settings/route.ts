@@ -7,25 +7,29 @@ export const dynamic = 'force-dynamic';
 // This avoids needing `npx prisma generate` for new BoardSettings fields.
 const FLAGS_SLUG = 'cover-display-flags';
 
-async function getCoverFlags(): Promise<{ showCoverAboveNavbar: boolean; showCoverInPageHeader: boolean }> {
+async function getCoverFlags(): Promise<{ showCoverAboveNavbar: boolean; showCoverInPageHeader: boolean; scrollingNotice: string; showScrollingNotice: boolean }> {
   try {
     const record = await prisma.pageContent.findUnique({ where: { slug: FLAGS_SLUG } });
-    if (!record) return { showCoverAboveNavbar: false, showCoverInPageHeader: false };
+    if (!record) return { showCoverAboveNavbar: false, showCoverInPageHeader: false, scrollingNotice: "", showScrollingNotice: false };
     const parsed = JSON.parse(record.content);
     return {
       showCoverAboveNavbar:  parsed.showCoverAboveNavbar  ?? false,
       showCoverInPageHeader: parsed.showCoverInPageHeader ?? false,
+      scrollingNotice:       parsed.scrollingNotice ?? "",
+      showScrollingNotice:   parsed.showScrollingNotice ?? false,
     };
   } catch {
-    return { showCoverAboveNavbar: false, showCoverInPageHeader: false };
+    return { showCoverAboveNavbar: false, showCoverInPageHeader: false, scrollingNotice: "", showScrollingNotice: false };
   }
 }
 
-async function setCoverFlags(flags: { showCoverAboveNavbar?: boolean; showCoverInPageHeader?: boolean }) {
+async function setCoverFlags(flags: { showCoverAboveNavbar?: boolean; showCoverInPageHeader?: boolean; scrollingNotice?: string; showScrollingNotice?: boolean }) {
   const current = await getCoverFlags();
   const merged = {
     showCoverAboveNavbar:  flags.showCoverAboveNavbar  ?? current.showCoverAboveNavbar,
     showCoverInPageHeader: flags.showCoverInPageHeader ?? current.showCoverInPageHeader,
+    scrollingNotice:       flags.scrollingNotice ?? current.scrollingNotice,
+    showScrollingNotice:   flags.showScrollingNotice ?? current.showScrollingNotice,
   };
   await prisma.pageContent.upsert({
     where:  { slug: FLAGS_SLUG },
@@ -116,6 +120,8 @@ export async function PUT(request: Request) {
     const flags = await setCoverFlags({
       showCoverAboveNavbar:  data.showCoverAboveNavbar,
       showCoverInPageHeader: data.showCoverInPageHeader,
+      scrollingNotice:       data.scrollingNotice,
+      showScrollingNotice:   data.showScrollingNotice,
     });
 
     return NextResponse.json({ ...settings, ...flags });

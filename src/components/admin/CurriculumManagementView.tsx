@@ -154,7 +154,7 @@ export default function CurriculumManagementView() {
   const activeYear = examYears.find(y => y.year === activeYearString) || (examYears.length > 0 ? examYears[0] : undefined);
   const activeYearIdForExams = activeYear?.id;
 
-  const parseResourceTitle = (title: string | null) => {
+  const parseResourceTitle = (title: string | null | undefined) => {
     if (!title) return { name: '', rate: '' };
     if (title.includes('||')) {
       const [name, rate] = title.split('||');

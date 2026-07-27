@@ -22,7 +22,11 @@ export async function GET() {
     const products = await (prisma as any).storeProduct.findMany({
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json(products);
+    const cleanedProducts = products.map((p: any) => ({
+      ...p,
+      barcode: p.barcode?.startsWith('__NO_BARCODE_') ? '' : p.barcode
+    }));
+    return NextResponse.json(cleanedProducts);
   } catch (error) {
     console.error("Failed to fetch products:", error);
     return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
@@ -34,7 +38,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const { name, category, price, stock, unit, imageUrl, barcode, className, subject } = await request.json();
+    const { name, category, price, stock, unit, imageUrl, barcode, className, description } = await request.json();
     
     // Convert to numbers safely
     const parsedPrice = Number(price);
@@ -51,15 +55,15 @@ export async function POST(request: Request) {
         price: parsedPrice, 
         stock: parsedStock, 
         unit: unit || "টি",
-        imageUrl: imageUrl || null,
-        barcode: barcode?.trim() || null,
-        className: className || null,
-        subject: subject || null
+        imageUrl: imageUrl || undefined,
+        barcode: barcode?.trim() ? barcode.trim() : `__NO_BARCODE_${Date.now()}_${Math.random()}__`,
+        className: className || undefined,
+        description: description || undefined
       },
     });
     return NextResponse.json(product);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to create product:", error);
-    return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Failed to create product" }, { status: 500 });
   }
 }

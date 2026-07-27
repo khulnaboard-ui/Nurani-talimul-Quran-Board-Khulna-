@@ -3,10 +3,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Plus, Filter, Download, FileText, MoreVertical, CheckCircle, Trash2, Share2, X, Scan, Edit } from 'lucide-react';
 import BanglaDatePicker, { toBanglaDigits } from './BanglaDatePicker';
 
-type SaleItem = { id: string; quantity: number; unitPrice: number; product: { name: string } };
+type SaleItem = { id: string; quantity: number; unitPrice: number; product: { name: string, className?: string | null } };
 type Sale = {
   id: string; invoiceId: string; customerName: string; instituteId?: string | null; totalAmount: number;
   paidAmount: number; status: string; createdAt: string; items: SaleItem[];
+  payments?: { payer: string, method: string, amount: number, createdAt: string }[];
 };
 
 type Product = { id: string; name: string; price: number; stock: number; unit: string; barcode?: string | null };
@@ -160,6 +161,11 @@ function NewSaleModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = 'unset'; };
+  }, []);
 
   useEffect(() => { fetch('/api/store/products').then(r => r.json()).then(setProducts); }, []);
   useEffect(() => {
@@ -493,6 +499,129 @@ function NewSaleModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
     </div>
   );
 }
+const generateInvoiceHTML = (sale: Sale, coverUrl: string) => {
+  const payment = sale.payments?.[0];
+  const payer = payment?.payer || sale.customerName;
+  const method = payment?.method || 'Cash';
+  const subtotal = sale.items.reduce((sum, i) => sum + (i.quantity * i.unitPrice), 0);
+  const discount = subtotal - sale.totalAmount;
+  
+  return `
+    <html>
+      <head>
+        <title>Invoice ${sale.invoiceId}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Inter:wght@400;500;600;700&display=swap');
+          @page { size: A4; margin: 0; }
+          body { font-family: 'Inter', 'Tiro Bangla', sans-serif; padding: 20px; max-width: 210mm; margin: 0 auto; color: #1e293b; background: #fff; line-height: 1.5; box-sizing: border-box; display: flex; flex-direction: column; min-height: 98vh; }
+          .header { text-align: center; border-bottom: 2px solid #16a34a; padding-bottom: 20px; margin-bottom: 30px; position: relative; }
+          .invoice-badge { position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); background: #16a34a; color: white; padding: 4px 20px; border-radius: 9999px; font-weight: 600; font-size: 14px; }
+          .header h1 { font-size: 26px; color: #16a34a; margin: 0 0 8px 0; font-weight: 700; }
+          .header p { margin: 0; color: #64748b; font-size: 14px; }
+          .info-section { display: flex; justify-content: space-between; margin-bottom: 24px; background: #f8fafc; padding: 16px; border-radius: 4px; border: 1px solid #e2e8f0; }
+          .info-box p { margin: 0 0 4px 0; font-size: 13px; color: #0f172a; }
+          .info-box p:last-child { margin-bottom: 0; }
+          .info-box p strong { color: #64748b; display: inline-block; width: 90px; font-weight: 500; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 24px; border: 1px solid #16a34a; }
+          th { background: #16a34a; color: white; font-weight: 600; font-size: 13px; letter-spacing: 0.5px; padding: 4px 12px; text-align: left; border: 1px solid #16a34a; }
+          td { padding: 10px 12px; font-size: 13px; border: 1px solid #16a34a; color: #334155; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .totals-section { width: 280px; margin-top: auto; align-self: flex-end; margin-bottom: 20px; }
+          .total-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; color: #475569; }
+          .total-row.grand-total { font-size: 16px; font-weight: 700; color: #0f172a; border-top: 2px solid #16a34a; padding-top: 8px; margin-top: 4px; }
+          .total-row.paid { color: #16a34a; font-weight: 600; }
+          .total-row.due { color: #dc2626; font-weight: 600; }
+          @media print {
+            body { padding: 5px; max-width: none; }
+            .header { margin: -5px -5px 30px -5px; border-bottom-color: #000 !important; }
+            .info-section { border: 1px solid #000 !important; padding: 12px; background: transparent; }
+            .invoice-badge { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-color: #000 !important; }
+            .header h1 { color: #000 !important; }
+            table, th, td { border-color: #000 !important; }
+            th { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .total-row.grand-total { border-top-color: #000 !important; }
+            .total-row.paid, .total-row.due { color: #000 !important; font-weight: 700; }
+            .info-box p strong { color: #000 !important; }
+            img { -webkit-filter: grayscale(100%) brightness(0.6) contrast(2000%); filter: grayscale(100%) brightness(0.6) contrast(2000%); }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          ${coverUrl ? `<img src="${coverUrl}" alt="Board Cover" style="width: 100%; display: block; margin: 0; max-height: 120px; object-fit: cover;" />` 
+          : `
+          <h1>নূরানী তালিমুল কুরআন বোর্ড খুলনা</h1>
+          <p>খুলনা, বাংলাদেশ | মোবাইল: +880 1711-000000</p>
+          `}
+          <div class="invoice-badge">ইনভয়েস</div>
+        </div>
+        
+        <div class="info-section">
+          <div class="info-box">
+            <p><strong>ক্রেতা:</strong> ${sale.customerName}</p>
+            <p><strong>প্রদানকারী:</strong> ${payer}</p>
+            <p><strong>পেমেন্ট মাধ্যম:</strong> ${method}</p>
+          </div>
+          <div class="info-box">
+            <p><strong>ইনভয়েস নং:</strong> ${sale.invoiceId}</p>
+            <p><strong>তারিখ:</strong> ${new Date(sale.createdAt).toLocaleDateString('bn-BD')}</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>পণ্যের নাম</th>
+              <th class="text-center">পরিমাণ</th>
+              <th class="text-right">একক মূল্য</th>
+              <th class="text-right">মোট মূল্য</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sale.items.map(i => `
+              <tr>
+                <td style="font-weight: 500; color: #0f172a;">
+                  ${i.product.name}
+                  ${i.product.className ? `<span style="font-size: 11px; color: #64748b; font-weight: normal; margin-left: 4px;">(${i.product.className})</span>` : ''}
+                </td>
+                <td class="text-center">${i.quantity}</td>
+                <td class="text-right">${i.unitPrice} ৳</td>
+                <td class="text-right" style="font-weight: 600; color: #0f172a;">${(i.quantity * i.unitPrice).toFixed(2)} ৳</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="totals-section">
+          <div class="total-row">
+            <span>উপমোট:</span>
+            <span>${subtotal.toFixed(2)} ৳</span>
+          </div>
+          ${discount > 0 ? `
+          <div class="total-row">
+            <span>ছাড়:</span>
+            <span>-${discount.toFixed(2)} ৳</span>
+          </div>
+          ` : ''}
+          <div class="total-row grand-total">
+            <span>সর্বমোট:</span>
+            <span>${sale.totalAmount.toFixed(2)} ৳</span>
+          </div>
+          <div class="total-row paid">
+            <span>পরিশোধিত:</span>
+            <span>${sale.paidAmount.toFixed(2)} ৳</span>
+          </div>
+          <div class="total-row due">
+            <span>বকেয়া:</span>
+            <span>${(sale.totalAmount - sale.paidAmount).toFixed(2)} ৳</span>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+};
+
 function ActionDropdown({ sale, onUpdate }: { sale: Sale; onUpdate: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -517,27 +646,37 @@ function ActionDropdown({ sale, onUpdate }: { sale: Sale; onUpdate: () => void }
     onUpdate(); setOpen(false);
   };
 
-  const printInvoice = () => {
-    const w = window.open('', '_blank');
-    if (!w) return;
-    w.document.write(`
-      <html><head><title>Invoice ${sale.invoiceId}</title>
-      <style>body{font-family:sans-serif;padding:20px;max-width:500px;margin:0 auto}
-      h1{font-size:18px;text-align:center}table{width:100%;border-collapse:collapse;margin:16px 0}
-      th,td{border:1px solid #ddd;padding:8px;text-align:left;font-size:13px}
-      th{background:#f5f5f5}.total{text-align:right;font-weight:bold;margin-top:8px}</style>
-      </head><body>
-      <h1>নূরানী তালিমুল কুরআন বোর্ড খুলনা</h1>
-      <p><b>ইনভয়েস:</b> ${sale.invoiceId}</p>
-      <p><b>ক্রেতা:</b> ${sale.customerName}</p>
-      <p><b>তারিখ:</b> ${new Date(sale.createdAt).toLocaleDateString('bn-BD')}</p>
-      <table><tr><th>পণ্য</th><th>পরিমাণ</th><th>দাম</th><th>মোট</th></tr>
-      ${sale.items.map(i => `<tr><td>${i.product.name}</td><td>${i.quantity}</td><td>${i.unitPrice} ৳</td><td>${(i.quantity * i.unitPrice).toFixed(2)} ৳</td></tr>`).join('')}
-      </table><p class="total">সর্বমোট: ${sale.totalAmount.toFixed(2)} ৳</p>
-      <p class="total">পরিশোধিত: ${sale.paidAmount.toFixed(2)} ৳</p>
-      <p class="total">বাকি: ${(sale.totalAmount - sale.paidAmount).toFixed(2)} ৳</p>
-      <script>window.onload=()=>{window.print();}</script></body></html>`);
-    w.document.close(); setOpen(false);
+  const printInvoice = async () => {
+    let coverUrl = '';
+    try {
+      const res = await fetch('/api/settings');
+      const settings = await res.json();
+      coverUrl = settings.coverUrl || '';
+    } catch (e) {}
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(generateInvoiceHTML(sale, coverUrl));
+      doc.close();
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => document.body.removeChild(iframe), 2000);
+        }, 500);
+      };
+    }
+    setOpen(false);
   };
 
   const shareInvoice = () => {
@@ -578,11 +717,158 @@ function ActionDropdown({ sale, onUpdate }: { sale: Sale; onUpdate: () => void }
   );
 }
 
+function SaleDetailsModal({ sale, onClose }: { sale: Sale; onClose: () => void }) {
+  const payment = sale.payments?.[0];
+  const payer = payment?.payer || sale.customerName;
+  const method = payment?.method || 'Cash';
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = 'unset'; };
+  }, []);
+
+  const printInvoice = async () => {
+    let coverUrl = '';
+    try {
+      const res = await fetch('/api/settings');
+      const settings = await res.json();
+      coverUrl = settings.coverUrl || '';
+    } catch (e) {}
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(generateInvoiceHTML(sale, coverUrl));
+      doc.close();
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => document.body.removeChild(iframe), 2000);
+        }, 500);
+      };
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
+          <h3 className="font-bold text-slate-800 text-lg">ইনভয়েস বিস্তারিত</h3>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 overflow-y-auto">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <p className="text-sm text-slate-500 mb-1">ইনভয়েস আইডি</p>
+              <p className="font-bold text-primary text-lg">{sale.invoiceId}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-slate-500 mb-1">তারিখ</p>
+              <p className="font-medium text-slate-800">{new Date(sale.createdAt).toLocaleDateString('bn-BD')}</p>
+            </div>
+          </div>
+          
+          <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100 flex flex-col sm:flex-row gap-4 justify-between">
+            <div>
+              <p className="text-sm text-slate-500 mb-1">ক্রেতার নাম</p>
+              <p className="font-bold text-slate-800">{sale.customerName}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500 mb-1">প্রদানকারী (Paid By)</p>
+              <p className="font-medium text-slate-800">{payer}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500 mb-1">পেমেন্ট মাধ্যম</p>
+              <p className="font-medium text-slate-800">{method}</p>
+            </div>
+          </div>
+
+          <h4 className="font-bold text-slate-800 mb-3">পণ্যসমূহ ({sale.items.length})</h4>
+          <div className="border border-slate-200 rounded-xl overflow-hidden mb-6 bg-white">
+            {/* Desktop Table */}
+            <div className="hidden sm:block">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">পণ্য</th>
+                    <th className="px-4 py-3 font-medium text-center">পরিমাণ</th>
+                    <th className="px-4 py-3 font-medium text-right">দাম</th>
+                    <th className="px-4 py-3 font-medium text-right">মোট</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sale.items.map(item => (
+                    <tr key={item.id} className="bg-white">
+                      <td className="px-4 py-3 font-medium text-slate-800">{item.product.name}</td>
+                      <td className="px-4 py-3 text-center text-slate-600">{item.quantity}</td>
+                      <td className="px-4 py-3 text-right text-slate-600">{item.unitPrice} ৳</td>
+                      <td className="px-4 py-3 text-right font-medium text-slate-800">{(item.quantity * item.unitPrice).toFixed(2)} ৳</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Mobile Cards */}
+            <div className="sm:hidden flex flex-col divide-y divide-slate-100">
+              {sale.items.map(item => (
+                <div key={item.id} className="p-3 bg-white flex flex-col gap-1.5">
+                  <p className="font-medium text-slate-800 leading-tight">{item.product.name}</p>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-500">{item.quantity} <span className="text-xs">x</span> {item.unitPrice} ৳</span>
+                    <span className="font-bold text-slate-800">{(item.quantity * item.unitPrice).toFixed(2)} ৳</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2 text-right border-t border-slate-100 pt-4">
+            <div className="flex justify-end gap-4 text-slate-600">
+              <span>সর্বমোট:</span>
+              <span className="font-bold text-slate-800 w-32">{sale.totalAmount.toFixed(2)} ৳</span>
+            </div>
+            <div className="flex justify-end gap-4 text-emerald-600">
+              <span>পরিশোধিত:</span>
+              <span className="font-bold w-32">{sale.paidAmount.toFixed(2)} ৳</span>
+            </div>
+            <div className="flex justify-end gap-4 text-red-600">
+              <span>বাকি:</span>
+              <span className="font-bold w-32">{(sale.totalAmount - sale.paidAmount).toFixed(2)} ৳</span>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-200 font-medium rounded-lg transition-colors">
+            বন্ধ করুন
+          </button>
+          <button onClick={printInvoice} className="px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+            <FileText className="w-4 h-4" /> প্রিন্ট ভাউচার
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SaleTab() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
   const fetchSales = async () => {
     setLoading(true);
@@ -604,16 +890,22 @@ export default function SaleTab() {
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-300">
       {showModal && <NewSaleModal onClose={() => setShowModal(false)} onSaved={fetchSales} />}
+      {selectedSale && <SaleDetailsModal sale={selectedSale} onClose={() => setSelectedSale(null)} />}
 
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-          <input type="text" placeholder="Search by invoice ID or customer name..." value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            lang="en"
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex w-full sm:w-auto gap-2">
+          <div className="relative flex-1 sm:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <input type="text" placeholder="ইনভয়েস আইডি বা ক্রেতার নাম দিয়ে খুঁজুন..." value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              lang="en"
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" />
+          </div>
+          <button onClick={() => setShowModal(true)} className="sm:hidden flex-shrink-0 flex items-center justify-center w-10 h-10 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-sm">
+            <Plus className="w-5 h-5" />
+          </button>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="hidden sm:flex items-center gap-3 w-full sm:w-auto">
           <button onClick={() => {
             const csv = ['ইনভয়েস,ক্রেতা,তারিখ,মোট,স্ট্যাটাস', ...filtered.map(s => `${s.invoiceId},${s.customerName},${new Date(s.createdAt).toLocaleDateString()},${s.totalAmount},${s.status}`)].join('\n');
             const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
@@ -627,9 +919,11 @@ export default function SaleTab() {
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-xl bg-white">
-        <div className="min-w-full">
-          <table className="w-full text-left border-collapse">
+      <div className="md:border md:border-slate-200 md:rounded-xl md:bg-white overflow-visible md:overflow-hidden">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
+          <div className="min-w-full">
+            <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
                 <th className="px-6 py-4 font-medium">ইনভয়েস আইডি</th>
@@ -665,6 +959,62 @@ export default function SaleTab() {
               ))}
             </tbody>
           </table>
+        </div>
+        </div>
+        
+        {/* Mobile Cards */}
+        <div className="md:hidden flex flex-col gap-3">
+          {loading ? (
+            <div className="p-8 text-center text-slate-400">লোড হচ্ছে...</div>
+          ) : filtered.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 bg-white rounded-xl border border-slate-200">কোনো বিক্রয় পাওয়া যায়নি</div>
+          ) : filtered.map(sale => (
+            <div key={sale.id} onClick={() => setSelectedSale(sale)} className="p-4 flex flex-col gap-3 bg-white border border-slate-200 rounded-xl shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
+              {/* Header */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-bold text-primary">{sale.invoiceId}</p>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${sale.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : sale.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {sale.status === 'Paid' ? 'পরিশোধিত' : sale.status === 'Pending' ? 'বকেয়া' : 'আংশিক'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">{new Date(sale.createdAt).toLocaleDateString('bn-BD')}</p>
+                </div>
+                <div onClick={e => e.stopPropagation()}>
+                  <ActionDropdown sale={sale} onUpdate={fetchSales} />
+                </div>
+              </div>
+              
+              <div className="h-px w-full bg-slate-100 my-1" />
+
+              {/* Details */}
+              <div className="flex justify-between items-center text-sm">
+                <div>
+                  <p className="text-xs text-slate-400 mb-0.5">ক্রেতা</p>
+                  <p className="font-semibold text-slate-700">{sale.customerName}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-400 mb-0.5">আইটেম</p>
+                  <p className="font-semibold text-slate-700">{sale.items.reduce((sum, item) => sum + item.quantity, 0)} টি</p>
+                </div>
+              </div>
+              
+              {/* Totals */}
+              <div className="flex justify-between items-center mt-1 p-3 bg-slate-50 rounded-lg">
+                <div>
+                  <p className="text-xs text-slate-500 mb-0.5">পরিশোধ: {sale.paidAmount.toFixed(2)} ৳</p>
+                  <p className="font-bold text-slate-800">মোট: {sale.totalAmount.toFixed(2)} ৳</p>
+                </div>
+                {sale.totalAmount > sale.paidAmount && (
+                  <div className="text-right">
+                    <p className="text-xs text-red-400 mb-0.5">বাকি</p>
+                    <p className="font-bold text-red-600">{(sale.totalAmount - sale.paidAmount).toFixed(2)} ৳</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

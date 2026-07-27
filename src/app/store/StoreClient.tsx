@@ -16,6 +16,7 @@ export type Product = {
   barcode?: string | null;
   className?: string | null;
   subject?: string | null;
+  description?: string | null;
   rating?: number;
   reviews?: number;
 };
@@ -125,9 +126,11 @@ function ProductDetailModal({
           </div>
           <h2 className="text-2xl font-black text-slate-800 mb-2">{product.name}</h2>
           <StarDisplay rating={r.rating} reviews={r.reviews} />
-          <p className="text-slate-500 mt-3 text-sm leading-relaxed">
-            এই পণ্যটি নূরানী তালিমুল কুরআন বোর্ড খুলনার অনুমোদিত প্রকাশনা। শিক্ষার্থীদের জন্য বিশেষভাবে তৈরি এই পণ্যটি উচ্চমানের কাগজ ও উন্নত ছাপায় তৈরি।
-          </p>
+          {product.description && (
+            <p className="text-slate-500 mt-3 text-sm leading-relaxed whitespace-pre-wrap">
+              {product.description}
+            </p>
+          )}
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
             <div>
               <span className="text-3xl font-black text-primary">৳{product.price}</span>
@@ -402,6 +405,36 @@ export default function StoreClient({ initialProducts }: { initialProducts: Prod
 
         {/* Main Content */}
         <div className="flex-1 min-w-0 h-full flex flex-col px-4 sm:px-6 lg:px-8 py-4 lg:py-6">
+          {/* Horizontal Category Tabs (Mobile & Desktop) */}
+          <div className="w-full overflow-x-auto pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex-shrink-0">
+            <div className="flex items-center gap-2 w-max">
+              <button
+                onClick={(e) => {
+                  setSelectedCategories(new Set());
+                  e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }}
+                className={`px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors border ${selectedCategories.size === 0 ? 'bg-primary border-primary text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800'}`}
+              >
+                সকল
+              </button>
+              {categories.map(cat => {
+                const isSelected = selectedCategories.has(cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={(e) => {
+                      toggleCategory(cat);
+                      e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    }}
+                    className={`px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors border ${isSelected ? 'bg-primary border-primary text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800'}`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Results Bar */}
           <div className="flex items-center justify-between mb-4 flex-shrink-0">
             <p className="text-sm text-slate-500 font-medium">

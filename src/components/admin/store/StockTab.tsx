@@ -3,38 +3,73 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ImageCropper from './ImageCropper';
 import { Search, Plus, Download, Edit, Trash2, MoreVertical, X, Package, TrendingUp, Clock, List, Image as ImageIcon, Crop, Upload, Printer, Scan } from 'lucide-react';
 
-type Product = { id: string; name: string; category: string; price: number; stock: number; unit: string; updatedAt: string; imageUrl?: string | null; barcode?: string | null; className?: string | null; subject?: string | null; };
+type Product = { id: string; name: string; category: string; price: number; stock: number; unit: string; updatedAt: string; imageUrl?: string | null; barcode?: string | null; className?: string | null; description?: string | null; };
 
 const toEnglishDigits = (str: string) => {
   const bnToEn: Record<string, string> = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
   return str.replace(/[০-৯]/g, match => bnToEn[match]);
 };
 
-function ProductModal({ product, products = [], onClose, onSaved }: { product?: Product | null; products?: Product[]; onClose: () => void; onSaved: () => void }) {
+function ProductModal({ product, products = [], defaultCategory, defaultClass, onClose, onSaved }: { product?: Product | null; products?: Product[]; defaultCategory?: string; defaultClass?: string; onClose: () => void; onSaved: () => void }) {
   const [activeProduct, setActiveProduct] = useState<Product | null>(product || null);
   const isEdit = !!activeProduct;
   
-  const [form, setForm] = useState({ 
-    name: product?.name || '', 
-    price: product?.price?.toString() || '', 
-    stock: product?.stock?.toString() || '0', 
-    unit: product?.unit || 'টি',
-    barcode: product?.barcode || '',
-    imageUrl: product?.imageUrl || '',
-    className: product?.className || '',
-    subject: product?.subject || ''
+  const [form, setForm] = useState<{name: string, price: string, stock: string, unit: string, barcode: string, imageUrl: string, className: string, description: string}>(() => {
+    if (!product && typeof window !== 'undefined') {
+      try {
+        const draft = localStorage.getItem('store_product_draft');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed.form) return parsed.form;
+        }
+      } catch (e) {}
+    }
+    return { 
+      name: product?.name || '', 
+      price: product?.price?.toString() || '', 
+      stock: product?.stock?.toString() || '', 
+      unit: product?.unit || 'টি',
+      barcode: product?.barcode || '',
+      imageUrl: product?.imageUrl || '',
+      className: product?.className || defaultClass || '',
+      description: product?.description || ''
+    };
   });
-  const [selectedCats, setSelectedCats] = useState<string[]>(product?.category ? product.category.split(',').map(s=>s.trim()).filter(Boolean) : []);
+  
+  const [selectedCats, setSelectedCats] = useState<string[]>(() => {
+    if (!product && typeof window !== 'undefined') {
+      try {
+        const draft = localStorage.getItem('store_product_draft');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed.selectedCats) return parsed.selectedCats;
+        }
+      } catch (e) {}
+    }
+    return product?.category ? product.category.split(',').map(s=>s.trim()).filter(Boolean) : (defaultCategory ? [defaultCategory] : []);
+  });
+  const [formErrors, setFormErrors] = useState<{name?: boolean, price?: boolean, category?: boolean}>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showCropper, setShowCropper] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   
-  const uniqueClasses = useMemo(() => Array.from(new Set(products.map(p => p.className).filter(Boolean) as string[])), [products]);
-  const uniqueSubjects = useMemo(() => Array.from(new Set(products.map(p => p.subject).filter(Boolean) as string[])), [products]);
+  const [curriculumClasses, setCurriculumClasses] = useState<{id:string, name:string}[]>([]);
+  const uniqueClasses = useMemo(() => {
+    const set = new Set(curriculumClasses.map(c => c.name));
+    products.forEach(p => { if (p.className) set.add(p.className); });
+    return Array.from(set);
+  }, [curriculumClasses, products]);
   const [isNewClass, setIsNewClass] = useState(false);
-  const [isNewSubject, setIsNewSubject] = useState(false);
   
+
+
+  useEffect(() => {
+    if (!isEdit) {
+      localStorage.setItem('store_product_draft', JSON.stringify({ form, selectedCats }));
+    }
+  }, [form, selectedCats, isEdit]);
+
   // Smart Search Logic
   useEffect(() => {
     if (!product && form.barcode && form.barcode.length > 2) {
@@ -42,7 +77,7 @@ function ProductModal({ product, products = [], onClose, onSaved }: { product?: 
       if (match && !activeProduct) {
         setActiveProduct(match);
         setForm({
-          name: match.name, price: match.price.toString(), stock: match.stock.toString(), unit: match.unit || 'টি', barcode: match.barcode || '', imageUrl: match.imageUrl || '', className: match.className || '', subject: match.subject || ''
+          name: match.name, price: match.price.toString(), stock: match.stock.toString(), unit: match.unit || 'টি', barcode: match.barcode || '', imageUrl: match.imageUrl || '', className: match.className || '', description: match.description || ''
         });
         setSelectedCats(match.category ? match.category.split(',').map(s=>s.trim()).filter(Boolean) : []);
       }
@@ -51,21 +86,40 @@ function ProductModal({ product, products = [], onClose, onSaved }: { product?: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || selectedCats.length === 0 || !form.price) { setError('সকল তথ্য পূরণ করুন।'); return; }
+    const errors = {
+      name: !form.name,
+      price: !form.price,
+      category: selectedCats.length === 0
+    };
+    setFormErrors(errors);
+    
+    if (errors.name || errors.price || errors.category) { 
+      setError('লাল চিহ্নিত আবশ্যিক তথ্যগুলো পূরণ করুন।'); 
+      return; 
+    }
     setLoading(true);
     const res = await fetch(isEdit ? `/api/store/products/${activeProduct!.id}` : '/api/store/products', {
       method: isEdit ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, category: selectedCats.join(', '), price: parseFloat(form.price), stock: parseInt(form.stock) }),
+      body: JSON.stringify({ ...form, category: selectedCats.join(', '), price: parseFloat(form.price), stock: parseInt(form.stock || '0') }),
     });
     setLoading(false);
-    if (res.ok) { onSaved(); onClose(); }
+    if (res.ok) { 
+      if (!isEdit) localStorage.removeItem('store_product_draft');
+      onSaved(); 
+      onClose(); 
+    }
     else { const d = await res.json(); setError(d.error || 'সেভ করতে সমস্যা হয়েছে'); }
   };
 
   const [categories, setCategories] = useState<{id:string, name:string, isClassWise?: boolean}[]>([]);
+  const [isNewCategory, setIsNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryIsClassWise, setNewCategoryIsClassWise] = useState(false);
+  
   useEffect(() => {
     fetch('/api/store/categories').then(r => r.json()).then(data => setCategories(Array.isArray(data) ? data : []));
+    fetch('/api/curriculum/classes').then(r => r.json()).then(data => setCurriculumClasses(Array.isArray(data) ? data : []));
   }, []);
 
   return (
@@ -154,7 +208,7 @@ function ProductModal({ product, products = [], onClose, onSaved }: { product?: 
                       setForm({
                         name: match.name, price: match.price.toString(), stock: match.stock.toString(), 
                         unit: match.unit || 'টি', barcode: match.barcode || '', imageUrl: match.imageUrl || '',
-                        className: match.className || '', subject: match.subject || ''
+                        className: match.className || '', description: match.description || ''
                       });
                       setSelectedCats(match.category ? match.category.split(',').map(s=>s.trim()).filter(Boolean) : []);
                       setShowSuggestions(false);
@@ -171,6 +225,105 @@ function ProductModal({ product, products = [], onClose, onSaved }: { product?: 
               </div>
             )}
           </div>
+
+          <div>
+            <label className={`block text-sm font-bold mb-2 ${formErrors.category ? 'text-red-600' : 'text-slate-700'}`}>ক্যাটাগরি * (একাধিক নির্বাচন করা যাবে)</label>
+            <div className={`flex flex-wrap gap-2 p-3 bg-slate-50 border rounded-xl min-h-[60px] ${formErrors.category ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200'}`}>
+              {categories.map(c => {
+                const isSelected = selectedCats.includes(c.name);
+                return (
+                  <button type="button" key={c.id} onClick={() => {
+                    setSelectedCats(prev => isSelected ? prev.filter(x => x !== c.name) : [...prev, c.name]);
+                  }} className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors flex items-center gap-1.5 ${isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'}`}>
+                    {c.name} {isSelected && <span className="text-white text-xs">✓</span>}
+                  </button>
+                )
+              })}
+              {categories.length === 0 && !isNewCategory && <span className="text-sm text-slate-400">কোনো ক্যাটাগরি নেই</span>}
+              
+              {isNewCategory ? (
+                <div className="flex items-center gap-2 mt-1 w-full bg-slate-100 p-2 rounded-lg border border-slate-200">
+                  <input 
+                    type="text" 
+                    value={newCategoryName} 
+                    onChange={e => setNewCategoryName(e.target.value)} 
+                    placeholder="নতুন ক্যাটাগরির নাম" 
+                    className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                  <label className="flex items-center gap-1 text-xs text-slate-600 font-medium cursor-pointer">
+                    <input type="checkbox" checked={newCategoryIsClassWise} onChange={e => setNewCategoryIsClassWise(e.target.checked)} className="rounded text-blue-600 focus:ring-blue-500" />
+                    শ্রেণীভিত্তিক?
+                  </label>
+                  <button type="button" onClick={async () => {
+                    if(!newCategoryName.trim()) { setIsNewCategory(false); return; }
+                    setLoading(true);
+                    const res = await fetch('/api/store/categories', {
+                      method: 'POST', headers:{'Content-Type': 'application/json'},
+                      body: JSON.stringify({name: newCategoryName.trim(), isClassWise: newCategoryIsClassWise})
+                    });
+                    setLoading(false);
+                    if (res.ok) {
+                      const newCat = await res.json();
+                      setCategories(prev => [...prev, newCat]);
+                      setSelectedCats(prev => [...prev, newCat.name]);
+                      setNewCategoryName('');
+                      setNewCategoryIsClassWise(false);
+                      setIsNewCategory(false);
+                    } else {
+                      const d = await res.json();
+                      setError(d.error || 'ক্যাটাগরি তৈরি করতে সমস্যা হয়েছে');
+                    }
+                  }} className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors">সংরক্ষণ</button>
+                  <button type="button" onClick={() => setIsNewCategory(false)} className="p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800 rounded-lg transition-colors"><X className="w-4 h-4"/></button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setIsNewCategory(true)} className="px-3 py-1.5 rounded-lg text-sm font-bold border border-dashed border-slate-400 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors flex items-center gap-1.5">
+                  <Plus className="w-4 h-4" /> 
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {selectedCats.some(cat => categories.find(c => c.name === cat)?.isClassWise) && (
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">শ্রেণী (Class)</label>
+              <div className="flex gap-2">
+                {isNewClass || uniqueClasses.length === 0 ? (
+                  <input
+                    type="text"
+                    value={form.className}
+                    onChange={e => setForm(prev => ({ ...prev, className: e.target.value }))}
+                    placeholder="যেমন: নূরানী ১ম শ্রেণী"
+                    className="w-full px-4 py-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all" />
+                ) : (
+                  <select
+                    value={form.className}
+                    onChange={e => setForm(prev => ({ ...prev, className: e.target.value }))}
+                    className="w-full px-4 py-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all"
+                  >
+                    <option value="">নির্বাচন করুন</option>
+                    {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                )}
+                {uniqueClasses.length > 0 && (
+                  <button type="button" onClick={() => setIsNewClass(!isNewClass)} className="p-3 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-center">
+                    {isNewClass ? <X className="w-5 h-5 text-slate-600"/> : <Plus className="w-5 h-5 text-blue-600"/>}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2">বিবরণ (Description) <span className="text-slate-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
+            <textarea
+              value={form.description}
+              onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="পণ্যের বিস্তারিত বিবরণ..."
+              rows={3}
+              className="w-full px-4 py-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all resize-none" />
+          </div>
+
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-2">মূল্য (৳) *</label>
             <input
@@ -181,6 +334,7 @@ function ProductModal({ product, products = [], onClose, onSaved }: { product?: 
                 let val = e.target.value;
                 val = toEnglishDigits(val);
                 setForm(prev => ({ ...prev, price: val }));
+                if (formErrors.price) setFormErrors(prev => ({ ...prev, price: false }));
               }}
               onFocus={(e) => {
                 if (e.target.value === '0') {
@@ -194,23 +348,17 @@ function ProductModal({ product, products = [], onClose, onSaved }: { product?: 
               }}
               placeholder="0"
               lang="en"
-              className="w-full px-4 py-3 text-lg font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+              className={`w-full px-4 py-3 text-lg font-medium bg-slate-50 border ${formErrors.price ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200'} rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`} 
             />
           </div>
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-bold text-slate-700 mb-2">মজুদ</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2">মজুদ <span className="text-slate-400 font-normal text-xs">(ঐচ্ছিক)</span></label>
               <input
                 type="text"
                 inputMode="numeric"
                 value={form.stock}
                 onChange={e => setForm(prev => ({ ...prev, stock: toEnglishDigits(e.target.value) }))}
-                onFocus={(e) => {
-                  if (e.target.value === '0') setForm(prev => ({ ...prev, stock: '' }));
-                }}
-                onBlur={(e) => {
-                  if (e.target.value === '') setForm(prev => ({ ...prev, stock: '0' }));
-                }}
                 placeholder="0"
                 lang="en"
                 className="w-full px-4 py-3 text-lg font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
@@ -232,81 +380,6 @@ function ProductModal({ product, products = [], onClose, onSaved }: { product?: 
               </select>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">ক্যাটাগরি * (একাধিক নির্বাচন করা যাবে)</label>
-            <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl min-h-[60px]">
-              {categories.map(c => {
-                const isSelected = selectedCats.includes(c.name);
-                return (
-                  <button type="button" key={c.id} onClick={() => {
-                    setSelectedCats(prev => isSelected ? prev.filter(x => x !== c.name) : [...prev, c.name]);
-                  }} className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors flex items-center gap-1.5 ${isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'}`}>
-                    {c.name} {isSelected && <span className="text-white text-xs">✓</span>}
-                  </button>
-                )
-              })}
-              {categories.length === 0 && <span className="text-sm text-slate-400">কোনো ক্যাটাগরি নেই</span>}
-            </div>
-          </div>
-          
-          {selectedCats.some(cat => categories.find(c => c.name === cat)?.isClassWise) && (
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-bold text-slate-700 mb-2">শ্রেণী (Class)</label>
-                <div className="flex gap-2">
-                  {isNewClass || uniqueClasses.length === 0 ? (
-                    <input
-                      type="text"
-                      value={form.className}
-                      onChange={e => setForm(prev => ({ ...prev, className: e.target.value }))}
-                      placeholder="যেমন: নূরানী ১ম শ্রেণী"
-                      className="w-full px-4 py-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all" />
-                  ) : (
-                    <select
-                      value={form.className}
-                      onChange={e => setForm(prev => ({ ...prev, className: e.target.value }))}
-                      className="w-full px-4 py-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all"
-                    >
-                      <option value="">নির্বাচন করুন</option>
-                      {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  )}
-                  {uniqueClasses.length > 0 && (
-                    <button type="button" onClick={() => setIsNewClass(!isNewClass)} className="p-3 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-center">
-                      {isNewClass ? <X className="w-5 h-5 text-slate-600"/> : <Plus className="w-5 h-5 text-blue-600"/>}
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-bold text-slate-700 mb-2">বিষয় (Subject)</label>
-                <div className="flex gap-2">
-                  {isNewSubject || uniqueSubjects.length === 0 ? (
-                    <input
-                      type="text"
-                      value={form.subject}
-                      onChange={e => setForm(prev => ({ ...prev, subject: e.target.value }))}
-                      placeholder="যেমন: বাংলা"
-                      className="w-full px-4 py-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all" />
-                  ) : (
-                    <select
-                      value={form.subject}
-                      onChange={e => setForm(prev => ({ ...prev, subject: e.target.value }))}
-                      className="w-full px-4 py-3 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white transition-all"
-                    >
-                      <option value="">নির্বাচন করুন</option>
-                      {uniqueSubjects.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  )}
-                  {uniqueSubjects.length > 0 && (
-                    <button type="button" onClick={() => setIsNewSubject(!isNewSubject)} className="p-3 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-center">
-                      {isNewSubject ? <X className="w-5 h-5 text-slate-600"/> : <Plus className="w-5 h-5 text-blue-600"/>}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {error && <p className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">{error}</p>}
           <div className="flex gap-3 pt-4">
@@ -552,6 +625,7 @@ export default function StockTab() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [filterClass, setFilterClass] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -586,8 +660,12 @@ export default function StockTab() {
 
   const filtered = products.filter(p =>
     (p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.id.includes(searchTerm)) &&
-    (filterCategory === '' || p.category === filterCategory)
+    (filterCategory === '' || p.category.includes(filterCategory)) &&
+    (filterClass === '' || p.className === filterClass)
   );
+
+  const currentCategoryProducts = filterCategory ? products.filter(p => p.category.includes(filterCategory) && p.className) : [];
+  const uniqueClasses = Array.from(new Set(currentCategoryProducts.map(p => p.className).filter(Boolean)));
 
   const stockStatus = (stock: number) => {
     if (stock === 0) return { label: 'মজুদ শেষ', class: 'bg-red-100 text-red-700' };
@@ -614,23 +692,23 @@ export default function StockTab() {
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-      {showModal && <ProductModal onClose={() => {setShowModal(false); setEditingProduct(undefined);}} onSaved={fetchProducts} product={editingProduct} products={filtered} />}
+      {showModal && <ProductModal onClose={() => {setShowModal(false); setEditingProduct(undefined);}} onSaved={fetchProducts} product={editingProduct} products={filtered} defaultCategory={filterCategory} defaultClass={filterClass} />}
 
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex gap-3 flex-1 flex-wrap">
-          <div className="relative w-full sm:w-72">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex gap-2 w-full sm:w-auto flex-1">
+          <div className="flex gap-2 flex-1 flex-wrap sm:flex-nowrap">
+            <div className="relative flex-1 sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <input type="text" placeholder="Search products..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-              lang="en"
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all" />
+              <input type="text" placeholder="পণ্য খুঁজুন..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                lang="en"
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all" />
+            </div>
           </div>
-          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-            className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-            <option value="">সকল ক্যাটাগরি</option>
-            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
+          <button onClick={() => setShowModal(true)} className="sm:hidden flex-shrink-0 flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+            <Plus className="w-5 h-5" />
+          </button>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="hidden sm:flex items-center gap-3 w-full sm:w-auto">
           <button onClick={() => {
             const csv = ['পণ্য,ক্যাটাগরি,মূল্য,মজুদ', ...filtered.map(p => `${p.name},${p.category},${p.price},${p.stock}`)].join('\n');
             const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
@@ -646,9 +724,68 @@ export default function StockTab() {
           </button>
         </div>
       </div>
+      
+      {/* Horizontal Category Tabs */}
+      <div className="w-full overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="flex items-center gap-2 w-max px-1">
+          <button
+            onClick={(e) => {
+              setFilterCategory('');
+              setFilterClass('');
+              e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors border ${filterCategory === '' ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+          >
+            সকল
+          </button>
+          {categories.map(c => (
+            <button
+              key={c.id}
+              onClick={(e) => {
+                setFilterCategory(c.name);
+                setFilterClass('');
+                e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+              }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors border ${filterCategory === c.name ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-        <div className="overflow-x-auto min-h-[350px]">
+      {/* Horizontal Class Tabs */}
+      {filterCategory && uniqueClasses.length > 0 && (
+        <div className="w-full overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="flex items-center gap-2 w-max px-1">
+            <button
+              onClick={(e) => {
+                setFilterClass('');
+                e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${filterClass === '' ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              সকল ক্লাস
+            </button>
+            {uniqueClasses.map(cls => (
+              <button
+                key={cls}
+                onClick={(e) => {
+                  setFilterClass(cls!);
+                  e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${filterClass === cls ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              >
+                {cls}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="md:border md:border-slate-200 md:rounded-xl overflow-visible md:overflow-hidden md:bg-white">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto min-h-[350px]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
@@ -686,6 +823,48 @@ export default function StockTab() {
               })}
             </tbody>
           </table>
+        </div>
+        
+        {/* Mobile Cards */}
+        <div className="md:hidden flex flex-col gap-3 min-h-[350px]">
+          {loading ? (
+            <div className="p-8 text-center text-slate-400">লোড হচ্ছে...</div>
+          ) : filtered.length === 0 ? (
+            <div className="p-12 text-center bg-white border border-slate-200 rounded-xl">
+              <Package className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-400">কোনো পণ্য পাওয়া যায়নি।</p>
+              <button onClick={() => setShowModal(true)} className="mt-3 text-sm text-blue-600 hover:underline">+ নতুন পণ্য যোগ করুন</button>
+            </div>
+          ) : sortedFiltered.map(product => {
+            const status = stockStatus(product.stock);
+            return (
+              <div key={product.id} className="p-4 flex flex-col gap-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-bold text-slate-800 text-base">{product.name}</p>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${status.class}`}>{status.label}</span>
+                    </div>
+                    <p className="text-xs text-slate-500">{product.category}</p>
+                  </div>
+                  <ActionDropdown product={product} onUpdate={fetchProducts} />
+                </div>
+
+                <div className="h-px w-full bg-slate-100 my-1" />
+
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5">মূল্য</p>
+                    <p className="font-bold text-blue-600 text-lg">{product.price} ৳</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400 mb-0.5">বর্তমান মজুদ</p>
+                    <p className="font-bold text-slate-700 text-lg">{product.stock} <span className="text-sm font-normal text-slate-500">{product.unit}</span></p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

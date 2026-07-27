@@ -1325,7 +1325,7 @@ function AdminDashboardContent() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">
+      <main className="flex-1 p-3 md:p-8 w-full max-w-full overflow-x-hidden">
         {activeTab === "dashboard" && (
           <header className="mb-8 flex justify-between items-center relative z-40">
             <div>

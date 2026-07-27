@@ -35,58 +35,42 @@ const COVER_H = 100; // px
 export function CoverTopBar() {
   const settings = useSettings();
   const [visible, setVisible] = useState(true);
-  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY === 0);
+    const onScroll = () => {
+      setVisible(window.scrollY < 50);
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   if (!settings?.coverUrl || !settings?.showCoverAboveNavbar) return null;
 
-  const handleBannerClick = () => {
-    if (!isExpanded) {
-      setIsExpanded(true);
-      setTimeout(() => {
-        setIsExpanded(false);
-      }, 5000);
-    }
-  };
-
   return (
     <div
-      onClick={handleBannerClick}
+      className="bg-primary"
       style={{
         width: "100%",
-        maxHeight: visible ? (isExpanded ? "1200px" : `${COVER_H}px`) : "0px",
-        overflow: "hidden",
-        transition: `max-height 1s cubic-bezier(0.4, 0, 0.2, 1)`,
+        display: "grid",
+        gridTemplateRows: visible ? "1fr" : "0fr",
+        transition: "grid-template-rows 0.4s ease-in-out",
         position: "relative",
-        cursor: isExpanded ? "default" : "zoom-in",
       }}
     >
-      <img
-        src={settings.coverUrl}
-        alt="Board Cover"
-        style={{
-          width: "100%",
-          height: "auto",
-          minHeight: "120px",
-          display: "block",
-          objectFit: "cover",
-          marginTop: isExpanded ? "0" : "-20px",
-          transition: `margin-top 1s cubic-bezier(0.4, 0, 0.2, 1)`,
-        }}
-      />
-      {/* Bottom fade */}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0, height: "40px",
-        background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.4))",
-        pointerEvents: "none",
-        opacity: isExpanded ? 0 : 1,
-        transition: "opacity 0.4s ease",
-      }} />
+      <div style={{ overflow: "hidden" }}>
+        <img
+          src={settings.coverUrl}
+          alt="Board Cover"
+          style={{
+            width: "100%",
+            height: "auto",
+            display: "block",
+            objectFit: "contain",
+            marginTop: "-2%", // Slight negative margin to hide top white border if present in image
+            marginBottom: "-2%", // Slight negative margin to hide bottom white border if present
+          }}
+        />
+      </div>
     </div>
   );
 }

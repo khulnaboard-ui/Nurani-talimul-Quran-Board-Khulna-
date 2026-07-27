@@ -29,6 +29,8 @@ interface BoardSettings {
   coverUrl?: string;
   showCoverAboveNavbar?: boolean;
   showCoverInPageHeader?: boolean;
+  scrollingNotice?: string;
+  showScrollingNotice?: boolean;
   contacts: ContactInfo[];
   payments: PaymentMethod[];
 }
@@ -190,7 +192,11 @@ function GeneralTab({ settings, onSave }: { settings: BoardSettings | null; onSa
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          scrollingNotice: settings?.scrollingNotice,
+          showScrollingNotice: settings?.showScrollingNotice,
+        }),
       });
       if (res.ok) {
         toast.success("সফলভাবে সংরক্ষিত হয়েছে!");
