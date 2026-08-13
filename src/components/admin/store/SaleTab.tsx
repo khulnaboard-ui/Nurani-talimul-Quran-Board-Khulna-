@@ -7,6 +7,8 @@ type SaleItem = { id: string; quantity: number; unitPrice: number; product: { na
 type Sale = {
   id: string; invoiceId: string; customerName: string; instituteId?: string | null; totalAmount: number;
   paidAmount: number; status: string; createdAt: string; items: SaleItem[];
+  previousDue?: number; previousDueList?: any[]; discount?: number;
+  currentDueList?: any[]; currentTotalDue?: number;
   payments?: { payer: string, method: string, amount: number, createdAt: string }[];
 };
 
@@ -527,7 +529,7 @@ const generateInvoiceHTML = (sale: Sale, coverUrl: string) => {
           td { padding: 10px 12px; font-size: 13px; border: 1px solid #16a34a; color: #334155; }
           .text-right { text-align: right; }
           .text-center { text-align: center; }
-          .totals-section { width: 280px; margin-top: auto; align-self: flex-end; margin-bottom: 20px; }
+          .totals-section { width: 380px; margin-top: auto; align-self: flex-end; margin-bottom: 20px; }
           .total-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; color: #475569; }
           .total-row.grand-total { font-size: 16px; font-weight: 700; color: #0f172a; border-top: 2px solid #16a34a; padding-top: 8px; margin-top: 4px; }
           .total-row.paid { color: #16a34a; font-weight: 600; }
@@ -595,9 +597,23 @@ const generateInvoiceHTML = (sale: Sale, coverUrl: string) => {
 
         <div class="totals-section">
           <div class="total-row">
-            <span>উপমোট:</span>
+            <span>বর্তমান বিল:</span>
             <span>${subtotal.toFixed(2)} ৳</span>
           </div>
+          ${sale.currentDueList && sale.currentDueList.length > 0 
+            ? sale.currentDueList.map((dueObj: any) => `
+            <div class="total-row" style="font-size: 13px; color: #475569;">
+              <span>অন্যান্য বকেয়া (${dueObj.invoiceId} - ${new Date(dueObj.date).toLocaleDateString('bn-BD')}):</span>
+              <span>${dueObj.due.toFixed(2)} ৳</span>
+            </div>
+            `).join('')
+            : (sale.currentTotalDue ? `
+            <div class="total-row">
+              <span>অন্যান্য বকেয়া:</span>
+              <span>${sale.currentTotalDue.toFixed(2)} ৳</span>
+            </div>
+            ` : '')
+          }
           ${discount > 0 ? `
           <div class="total-row">
             <span>ছাড়:</span>
@@ -605,16 +621,16 @@ const generateInvoiceHTML = (sale: Sale, coverUrl: string) => {
           </div>
           ` : ''}
           <div class="total-row grand-total">
-            <span>সর্বমোট:</span>
-            <span>${sale.totalAmount.toFixed(2)} ৳</span>
+            <span>সর্বমোট প্রদেয় (আজ পর্যন্ত):</span>
+            <span>${(subtotal + (sale.currentTotalDue || 0) - discount).toFixed(2)} ৳</span>
           </div>
           <div class="total-row paid">
-            <span>পরিশোধিত:</span>
+            <span>এই বিলের জন্য পরিশোধিত:</span>
             <span>${sale.paidAmount.toFixed(2)} ৳</span>
           </div>
-          <div class="total-row due">
-            <span>বকেয়া:</span>
-            <span>${(sale.totalAmount - sale.paidAmount).toFixed(2)} ৳</span>
+          <div class="total-row due" style="font-weight: bold; color: #dc2626;">
+            <span>সর্বমোট বকেয়া:</span>
+            <span>${(subtotal + (sale.currentTotalDue || 0) - discount - sale.paidAmount).toFixed(2)} ৳</span>
           </div>
         </div>
       </body>
@@ -663,10 +679,19 @@ function ActionDropdown({ sale, onUpdate }: { sale: Sale; onUpdate: () => void }
     iframe.style.border = 'none';
     document.body.appendChild(iframe);
 
+    // Fetch the real-time order data to get current due list
+    let printSale = sale;
+    try {
+      const orderRes = await fetch(`/api/store/orders/${sale.invoiceId}`);
+      if (orderRes.ok) {
+        printSale = await orderRes.json();
+      }
+    } catch(e) {}
+
     const doc = iframe.contentWindow?.document;
     if (doc) {
       doc.open();
-      doc.write(generateInvoiceHTML(sale, coverUrl));
+      doc.write(generateInvoiceHTML(printSale, coverUrl));
       doc.close();
       iframe.onload = () => {
         setTimeout(() => {

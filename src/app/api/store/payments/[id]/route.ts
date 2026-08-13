@@ -25,11 +25,25 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     if (body.status !== undefined) data.status = body.status;
     if (body.amount !== undefined) data.amount = parseFloat(body.amount);
     if (body.notes !== undefined) data.notes = body.notes;
+
+    const existingPayment = await (prisma as any).storePayment.findUnique({ where: { id: params.id } });
+    
     const payment = await (prisma as any).storePayment.update({
       where: { id: params.id },
       data,
       include: { sale: true },
     });
+
+    // If payment just became Completed and has a sale, update sale's paidAmount
+    if (body.status === 'Completed' && existingPayment?.status !== 'Completed' && payment.saleId) {
+      await (prisma as any).storeSale.update({
+        where: { id: payment.saleId },
+        data: {
+          paidAmount: { increment: payment.amount }
+        }
+      });
+    }
+
     return NextResponse.json(payment);
   } catch (error) {
     return NextResponse.json({ error: "Failed to update payment" }, { status: 500 });

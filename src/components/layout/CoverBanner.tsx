@@ -34,30 +34,65 @@ const COVER_H = 100; // px
 // ─── 1. Cover bar — hides on scroll, reappears at top ────────────────────────
 export function CoverTopBar() {
   const settings = useSettings();
-  const [visible, setVisible] = useState(true);
+  const [scrollY, setScrollY] = useState(0);
+
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     const onScroll = () => {
-      setVisible(window.scrollY < 50);
+      setScrollY(window.scrollY);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    
+    // Auto collapse after 3 seconds
+    const timer = setTimeout(() => {
+      setCollapsed(true);
+    }, 3000);
+    
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      clearTimeout(timer);
+    };
   }, []);
+
+  // Un-collapse if the user pulls down (overscroll)
+  useEffect(() => {
+    if (scrollY < 0 && collapsed) {
+      setCollapsed(false);
+    }
+  }, [scrollY, collapsed]);
 
   if (!settings?.coverUrl || !settings?.showCoverAboveNavbar) return null;
 
+  // When scrollY < 0 (overscroll at top), we increase the height/scale of the image.
+  const isOverscrolling = scrollY < 0;
+  const overscrollAmount = isOverscrolling ? Math.abs(scrollY) : 0;
+  
+  // Dampen the overscroll for a "magnetic" resistance feel
+  const dampenedOverscroll = Math.pow(overscrollAmount, 0.85);
+  
+  const scale = isOverscrolling ? 1 + dampenedOverscroll / 100 : 1;
+  const translateY = isOverscrolling ? dampenedOverscroll / 2 : 0;
+  
+  // Gradually reveal the hidden top/bottom borders (from -2% to 0%) when expanded
+  const marginReveal = isOverscrolling ? Math.min(0, -2 + (dampenedOverscroll / 20)) : -2;
+
+  // We want the grid transition to be smooth when collapsing, but instant when pulling (overscrolling)
+  // so it doesn't fight the magnetic drag.
+  const gridTransition = isOverscrolling ? "none" : "grid-template-rows 0.8s cubic-bezier(0.4, 0, 0.2, 1)";
+
   return (
     <div
-      className="bg-primary"
+      className="bg-primary flex justify-center items-end"
       style={{
         width: "100%",
-        display: "grid",
-        gridTemplateRows: visible ? "1fr" : "0fr",
-        transition: "grid-template-rows 0.4s ease-in-out",
         position: "relative",
+        display: "grid",
+        gridTemplateRows: (collapsed && !isOverscrolling) ? "0fr" : "1fr",
+        transition: gridTransition,
       }}
     >
-      <div style={{ overflow: "hidden" }}>
+      <div style={{ width: "100%", position: "relative", overflow: isOverscrolling ? "visible" : "hidden" }}>
         <img
           src={settings.coverUrl}
           alt="Board Cover"
@@ -66,8 +101,11 @@ export function CoverTopBar() {
             height: "auto",
             display: "block",
             objectFit: "contain",
-            marginTop: "-2%", // Slight negative margin to hide top white border if present in image
-            marginBottom: "-2%", // Slight negative margin to hide bottom white border if present
+            transform: `scale(${scale}) translateY(${translateY}px)`,
+            transformOrigin: "bottom center",
+            willChange: "transform, margin",
+            marginTop: `${marginReveal}%`, 
+            marginBottom: `${marginReveal}%`, 
           }}
         />
       </div>

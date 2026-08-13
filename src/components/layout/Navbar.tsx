@@ -1,7 +1,8 @@
 "use client";
 import Link from 'next/link';
 import { useState } from 'react';
-import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, ShoppingBag, BookOpen, ClipboardList, MapPin, Building2, Users, FileText, Settings } from "lucide-react";
+import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, ShoppingBag, BookOpen, ClipboardList, MapPin, Building2, Users, FileText, Settings, Search } from "lucide-react";
+import { TrackOrderModal } from '@/components/shared/TrackOrderModal';
 
 type UserPayload = {
   id: string;
@@ -13,10 +14,12 @@ type UserPayload = {
 
 export default function Navbar({ user }: { user?: UserPayload }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState<"user" | "admin">("admin");
+  const [mobileTab, setMobileTab] = useState("admin");
+  const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
 
   const navItems = [
     { title: "হোম", href: "/" },
+    { title: "বই ও স্টেশনারি", href: "/store" },
     {
       title: "পরিচিতি",
       href: "#",
@@ -147,6 +150,12 @@ export default function Navbar({ user }: { user?: UserPayload }) {
               )}
             </div>
           ))}
+          <button 
+            onClick={() => setIsTrackModalOpen(true)} 
+            className="flex items-center gap-2 hover:text-gray-200 transition-colors py-2 font-bold bg-white/10 px-3 rounded-lg border border-white/20"
+          >
+            <Search className="w-4 h-4" /> অর্ডার ট্র্যাক
+          </button>
         </nav>
 
         {/* Action Button & Mobile Toggle */}
@@ -331,11 +340,21 @@ export default function Navbar({ user }: { user?: UserPayload }) {
                       </>
                     )}
                   </div>
+                  
+                  <button 
+                    onClick={() => setIsTrackModalOpen(true)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white hover:bg-slate-50 transition-colors border border-slate-100 text-slate-700 font-bold w-full text-left"
+                  >
+                    <Search className="w-5 h-5 text-primary" />
+                    অর্ডার ট্র্যাক করুন
+                  </button>
                 </>
               )}
             </div>
-          </div>
         </div>
+      </div>
+      
+      <TrackOrderModal isOpen={isTrackModalOpen} onClose={() => setIsTrackModalOpen(false)} />
     </header>
   );
 }

@@ -30,9 +30,11 @@ export default async function RootLayout({
       <body className={`${solaimanLipi.variable} font-sans`}>
         <DialogProvider>
           <div className="min-h-screen flex flex-col bg-slate-50">
-            {/* Cover + Navbar sticky unit — they scroll together and stick together */}
+            {/* Cover Banner (normal flow) */}
+            <CoverTopBar />
+
+            {/* Navbar (sticky) */}
             <div className="sticky top-0 z-50">
-              <CoverTopBar />
               <Navbar user={user} />
             </div>
 

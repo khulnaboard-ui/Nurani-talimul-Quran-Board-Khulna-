@@ -170,7 +170,19 @@ export default function StoreClient({ initialProducts }: { initialProducts: Prod
   const [cartOpen, setCartOpen] = useState(false);
   const [ratingFilter, setRatingFilter] = useState(0);
 
+  // Checkout & Invoice State
+  const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [instituteId, setInstituteId] = useState("");
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderError, setOrderError] = useState("");
+  const [successOrder, setSuccessOrder] = useState<any>(null);
+
+  const [boardSettings, setBoardSettings] = useState<any>(null);
+
   useEffect(() => {
+    fetch("/api/settings").then(r => r.json()).then(setBoardSettings).catch(() => {});
     try {
       const fav = JSON.parse(localStorage.getItem("store_favourites") || "[]");
       setFavourites(new Set(fav));
@@ -199,6 +211,141 @@ export default function StoreClient({ initialProducts }: { initialProducts: Prod
       if (existing) return prev.map(i => i.product.id === product.id ? { ...i, qty: i.qty + qty } : i);
       return [...prev, { product, qty }];
     });
+  };
+
+  const submitOrder = async () => {
+    if (!customerName) {
+      setOrderError("দয়া করে আপনার নাম লিখুন।");
+      return;
+    }
+    setOrderLoading(true);
+    setOrderError("");
+    try {
+      const items = cart.map(c => ({ productId: c.product.id, quantity: c.qty }));
+      const res = await fetch("/api/store/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerName, customerPhone, instituteId, items })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit order");
+      
+      setSuccessOrder(data);
+      setCart([]);
+      setCheckoutModalOpen(false);
+      
+      // Instantly trigger print preview
+      setTimeout(() => {
+        printInvoice(data);
+      }, 500);
+    } catch (e: any) {
+      setOrderError(e.message);
+    }
+    setOrderLoading(false);
+  };
+
+  const printInvoice = (orderToPrint = successOrder) => {
+    if (!orderToPrint) return;
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).map(s => s.outerHTML).join('');
+      doc.write(`
+        <html>
+          <head>
+            <title>Invoice ${orderToPrint.invoiceId}</title>
+            ${styles}
+            <style>
+              @page { size: auto; margin: 0; }
+              body { font-family: var(--font-solaiman-lipi, 'SolaimanLipi'), sans-serif; padding: 15px; max-width: 100%; width: 100%; margin: 0; box-sizing: border-box; color: #1e293b; line-height: 1.4; background: #fff !important; }
+              .invoice-container { border: none; overflow: hidden; width: 100%; }
+              .header { text-align: center; border-bottom: 2px solid #16a34a; padding-bottom: 10px; margin-bottom: 10px; }
+              .header img { max-width: 100%; height: auto; max-height: 70px; object-fit: contain; margin-bottom: 5px; }
+              .header h2 { color: #16a34a; margin: 0; font-size: 20px; font-weight: bold; }
+              .header p { margin: 2px 0 0; color: #64748b; font-size: 12px; }
+              .content { padding: 0; width: 100%; }
+              .info-section { display: flex; flex-direction: column; margin-bottom: 15px; width: 100%; gap: 10px; }
+              .info-block { background: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; }
+              .info-block p { margin: 2px 0; font-size: 13px; }
+              .flex-between { display: flex; justify-content: space-between; }
+              .institute-line { border-top: 1px dashed #cbd5e1; padding-top: 6px; margin-top: 6px; width: 100%; }
+              table { width: 100%; border-collapse: collapse; margin-top: 5px; table-layout: fixed; }
+              th { background: #16a34a; color: white; padding: 6px 8px; text-align: left; font-size: 13px; border: 1px solid #15803d; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              td { padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 13px; word-wrap: break-word; }
+              .text-right { text-align: right; }
+              .text-center { text-align: center; }
+              .totals-section { margin-top: 15px; display: flex; justify-content: flex-end; width: 100%; }
+              .totals { width: 60%; min-width: 380px; background: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; }
+              .totals div { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
+              .grand-total { font-size: 16px; font-weight: bold; border-top: 2px solid #16a34a; padding-top: 8px !important; margin-top: 4px; color: #16a34a; }
+              .footer { text-align: center; padding: 10px 0; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; margin-top: 20px; width: 100%; }
+            </style>
+          </head>
+          <body>
+            <div class="invoice-container">
+              <div class="header">
+                ${boardSettings?.coverUrl ? `<img src="${boardSettings.coverUrl}" alt="Banner" />` : `<h2 style="color: #16a34a; margin-bottom: 0;">নূরানী তালিমুল কুরআন বোর্ড - অনলাইন অর্ডার</h2>`}
+                <p>অর্ডারটি সফলভাবে গ্রহণ করা হয়েছে। অনুগ্রহ করে ইনভয়েসটি সংরক্ষণ করুন।</p>
+              </div>
+              <div class="content">
+                <div class="info-section">
+                  <div class="info-block flex-between">
+                    <p><strong>ইনভয়েস নং:</strong> ${orderToPrint.invoiceId}</p>
+                    <p><strong>তারিখ:</strong> ${new Date(orderToPrint.createdAt).toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
+                  <div class="info-block">
+                    <div class="flex-between">
+                      <p><strong>ক্রেতার নাম:</strong> ${orderToPrint.customerName}</p>
+                      <p><strong>মোবাইল নাম্বার:</strong> ${orderToPrint.customerPhone || 'N/A'}</p>
+                    </div>
+                    ${orderToPrint.instituteId ? `<div class="institute-line"><p><strong>প্রতিষ্ঠান:</strong> ${orderToPrint.instituteId}</p></div>` : ''}
+                  </div>
+                </div>
+                <table>
+                  <tr><th>পণ্যের নাম</th><th class="text-center">পরিমাণ</th><th class="text-right">একক মূল্য</th><th class="text-right">মোট মূল্য</th></tr>
+                  ${orderToPrint.items.map((i: any) => `<tr><td>${i.product.name}</td><td class="text-center">${i.quantity}</td><td class="text-right">${i.unitPrice.toFixed(2)} ৳</td><td class="text-right">${(i.quantity * i.unitPrice).toFixed(2)} ৳</td></tr>`).join('')}
+                </table>
+                <div class="totals-section">
+                  <div class="totals">
+                    <div><span>বর্তমান বিল:</span><span>${orderToPrint.totalAmount.toFixed(2)} ৳</span></div>
+                    ${orderToPrint.previousDueList && orderToPrint.previousDueList.length > 0 
+                      ? orderToPrint.previousDueList.map((dueObj: any) => 
+                          `<div style="font-size: 13px; color: #475569;"><span>বকেয়া (${dueObj.invoiceId} - ${new Date(dueObj.date).toLocaleDateString('bn-BD')}):</span><span>${dueObj.due.toFixed(2)} ৳</span></div>`
+                        ).join('')
+                      : (orderToPrint.previousDue ? `<div><span>পূর্বের বকেয়া:</span><span>${orderToPrint.previousDue.toFixed(2)} ৳</span></div>` : '')
+                    }
+                    ${orderToPrint.discount ? `<div><span>ছাড়:</span><span>-${orderToPrint.discount.toFixed(2)} ৳</span></div>` : ''}
+                    <div class="grand-total"><span>সর্বমোট প্রদেয়:</span><span>${(orderToPrint.totalAmount + (orderToPrint.previousDue || 0) - (orderToPrint.discount || 0)).toFixed(2)} ৳</span></div>
+                    <div><span>পরিশোধিত:</span><span>${(orderToPrint.paidAmount || 0).toFixed(2)} ৳</span></div>
+                    <div style="font-weight: bold; color: #dc2626;"><span>বর্তমান বকেয়া:</span><span>${(orderToPrint.totalAmount + (orderToPrint.previousDue || 0) - (orderToPrint.discount || 0) - (orderToPrint.paidAmount || 0)).toFixed(2)} ৳</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="footer">
+                ধন্যবাদ আমাদের সাথে কেনাকাটা করার জন্য।
+              </div>
+            </div>
+          </body>
+        </html>
+      `);
+      doc.close();
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => document.body.removeChild(iframe), 2000);
+        }, 500);
+      };
+    }
   };
 
   const cartTotal = cart.reduce((s, i) => s + i.product.price * i.qty, 0);
@@ -610,7 +757,7 @@ export default function StoreClient({ initialProducts }: { initialProducts: Prod
                     <span className="font-bold">সর্বমোট পরিমাণ</span>
                     <span className="text-xl font-black text-primary">৳{cartTotal.toFixed(2)}</span>
                   </div>
-                  <button className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors">
+                  <button onClick={() => setCheckoutModalOpen(true)} className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors">
                     অর্ডার করুন
                   </button>
                 </div>
@@ -689,11 +836,68 @@ export default function StoreClient({ initialProducts }: { initialProducts: Prod
                     <span className="font-bold">সর্বমোট পরিমাণ</span>
                     <span className="text-xl font-black text-primary">৳{cartTotal.toFixed(2)}</span>
                   </div>
-                  <button className="w-full py-3 bg-primary text-white rounded-xl font-black text-lg hover:bg-primary/90 transition-colors">
+                  <button onClick={() => setCheckoutModalOpen(true)} className="w-full py-3 bg-primary text-white rounded-xl font-black text-lg hover:bg-primary/90 transition-colors">
                     অর্ডার করুন
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Checkout Modal */}
+      {checkoutModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
+              <h3 className="font-bold text-lg text-slate-800">অর্ডার নিশ্চিত করুন</h3>
+              <button onClick={() => setCheckoutModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6">
+              {orderError && <p className="mb-4 text-red-500 text-sm bg-red-50 p-2 rounded">{orderError}</p>}
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">আপনার নাম *</label>
+                  <input value={customerName} onChange={e => setCustomerName(e.target.value)} type="text" placeholder="নাম লিখুন..." className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">মোবাইল নাম্বার</label>
+                  <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} type="text" placeholder="017..." className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">প্রতিষ্ঠানের নাম বা ঠিকানা</label>
+                  <input value={instituteId} onChange={e => setInstituteId(e.target.value)} type="text" placeholder="ঠিকানা..." className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primary" />
+                </div>
+              </div>
+              
+              <button onClick={submitOrder} disabled={orderLoading || !customerName} className="w-full mt-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                {orderLoading ? "অপেক্ষা করুন..." : "অর্ডার সাবমিট করুন"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {successOrder && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h3 className="font-black text-2xl text-slate-800 mb-2">অর্ডার সফল হয়েছে!</h3>
+            <p className="text-slate-500 mb-6">আপনার অর্ডারটি আমাদের সিস্টেমে গ্রহণ করা হয়েছে। আপনার ইনভয়েস আইডি:</p>
+            <div className="bg-slate-100 text-slate-800 font-black text-xl px-4 py-2 rounded-lg mb-6 border border-slate-200 shadow-inner">
+              {successOrder.invoiceId}
+            </div>
+            <div className="flex flex-col gap-3 w-full">
+              <button onClick={printInvoice} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
+                ইনভয়েস প্রিন্ট করুন
+              </button>
+              <button onClick={() => setSuccessOrder(null)} className="w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">
+                বন্ধ করুন
+              </button>
             </div>
           </div>
         </div>

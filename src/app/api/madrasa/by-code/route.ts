@@ -26,10 +26,45 @@ export async function GET(request: Request) {
     });
 
     if (!madrasa) {
-      return NextResponse.json({ error: "Madrasa not found" }, { status: 404 });
+      // If not found in Madrasa, check StoreSale for returning customers
+      const lastSale = await (prisma as any).storeSale.findFirst({
+        where: { customerPhone: normalizedCode },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (lastSale) {
+        let extractedAddress = "";
+        if (lastSale.notes) {
+          const match = lastSale.notes.match(/ঠিকানা:\s*([^()]+)/);
+          extractedAddress = match ? match[1].trim() : lastSale.notes;
+        }
+
+        return NextResponse.json({
+          ownerName: lastSale.customerName,
+          name: lastSale.instituteId || "",
+          contactNo: lastSale.customerPhone || "",
+          address: extractedAddress
+        });
+      }
+
+      return NextResponse.json({ error: "Madrasa or Customer not found" }, { status: 404 });
     }
 
-    return NextResponse.json(madrasa);
+    // Madrasa is found, but let's see if we have a previous order to pre-fill ownerName
+    const pastSale = await (prisma as any).storeSale.findFirst({
+      where: { 
+        OR: [
+          { customerPhone: normalizedCode },
+          { instituteId: madrasa.name }
+        ]
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return NextResponse.json({ 
+      ...madrasa, 
+      ownerName: pastSale ? pastSale.customerName : "" 
+    });
   } catch (error) {
     console.error("Failed to fetch madrasa by code:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

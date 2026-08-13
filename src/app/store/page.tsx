@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Search, ShoppingBag, Package, Heart, Star, LayoutGrid, List,
-  SlidersHorizontal, X, ChevronRight, ShoppingCart, Eye, Filter, ArrowLeft
+  SlidersHorizontal, X, ChevronRight, ShoppingCart, Eye, Filter, ArrowLeft, CheckCircle, Copy, Building2
 } from "lucide-react";
 import Link from "next/link";
 
@@ -126,15 +126,60 @@ function ProductDetailModal({
   );
 }
 
-function OrderFormModal({ onClose, total }: { onClose: () => void; total: number }) {
-  const [ilhak, setIlhak] = useState("");
-  const [ownerName, setOwnerName] = useState("");
-  const [instituteName, setInstituteName] = useState("");
-  const [contactNo, setContactNo] = useState("");
-  const [address, setAddress] = useState("");
+function OrderFormModal({ onClose, initialState, total, cart, onSuccess }: { onClose: (state?: any) => void; initialState?: any; total: number; cart: any[]; onSuccess: (data: any) => void }) {
+  const [ilhak, setIlhak] = useState(initialState?.ilhak || "");
+  const [ownerName, setOwnerName] = useState(initialState?.ownerName || "");
+  const [instituteName, setInstituteName] = useState(initialState?.instituteName || "");
+  const [contactNo, setContactNo] = useState(initialState?.contactNo || "");
+  const [address, setAddress] = useState(initialState?.address || "");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [searchStatus, setSearchStatus] = useState<"idle" | "found" | "not_found" | "error">("idle");
+  const [searchStatus, setSearchStatus] = useState<"idle" | "found" | "not_found" | "error">(initialState?.searchStatus || "idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [paymentStep, setPaymentStep] = useState(initialState?.paymentStep || false);
+  const [paymentOption, setPaymentOption] = useState<"pay_later" | "pay_now" | "money_receipt">("pay_now");
+  const [paymentProvider, setPaymentProvider] = useState<"bKash" | "Nagad" | "Rocket" | "Bank">("bKash");
+  const [trxId, setTrxId] = useState("");
+  const [receiptNumber, setReceiptNumber] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [receiptVerifyStatus, setReceiptVerifyStatus] = useState<'idle'|'verifying'|'valid'|'invalid'>('idle');
+  const [receiptVerifyMsg, setReceiptVerifyMsg] = useState("");
+  const [receiptBalance, setReceiptBalance] = useState(0);
+  // For partial receipt payment
+  const [remainingOption, setRemainingOption] = useState<'pay_now'|'pay_later'|'skip_receipt'>('pay_later');
+  const [remainingProvider, setRemainingProvider] = useState<'bKash'|'Nagad'|'Rocket'|'Bank'>('bKash');
+  const [remainingTrxId, setRemainingTrxId] = useState("");
+  const [remainingCopied, setRemainingCopied] = useState(false);
+
+  const handleCopy = () => {
+    const number = paymentProvider === 'Bank' ? '123456789' : '01700000000';
+    navigator.clipboard.writeText(number);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const verifyReceipt = async () => {
+    if (!receiptNumber.trim()) return;
+    setReceiptVerifyStatus('verifying');
+    setReceiptVerifyMsg('');
+    try {
+      const params = new URLSearchParams({ number: receiptNumber.trim() });
+      if (contactNo.trim()) params.append('phone', contactNo.trim());
+      const res = await fetch(`/api/store/receipts/verify?${params}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setReceiptVerifyStatus('valid');
+        setReceiptBalance(data.availableBalance);
+        setReceiptVerifyMsg(`✓ রিসিট সত্যায়িত! উপলব্ধ ব্যালান্স: ৳${data.availableBalance.toFixed(2)}`);
+      } else {
+        setReceiptVerifyStatus('invalid');
+        setReceiptVerifyMsg(data.error || 'রিসিট যাচাই ব্যর্থ হয়েছে');
+      }
+    } catch (e) {
+      setReceiptVerifyStatus('invalid');
+      setReceiptVerifyMsg('সার্ভার ত্রুটি। আবার চেষ্টা করুন।');
+    }
+  };
 
   const searchIlhak = async () => {
     if (!ilhak.trim()) return;
@@ -161,14 +206,28 @@ function OrderFormModal({ onClose, total }: { onClose: () => void; total: number
     }
   };
 
-  const handleConfirm = async () => {
+  const validateAndProceed = () => {
+    setErrorMsg("");
     if (!ownerName || !instituteName || !address) {
-      alert("অনুগ্রহ করে মালিকের নাম, প্রতিষ্ঠানের নাম এবং ঠিকানা প্রদান করুন।");
+      setErrorMsg("অনুগ্রহ করে মালিকের নাম, প্রতিষ্ঠানের নাম এবং ঠিকানা প্রদান করুন।");
       return;
     }
+    setPaymentStep(true);
+  };
+
+  const submitOrder = async () => {
     setIsSubmitting(true);
+    setErrorMsg("");
+    const isPartialReceipt = paymentOption === 'money_receipt' && receiptVerifyStatus === 'valid' && receiptBalance < total;
     try {
-      if (ilhak.trim() && searchStatus !== "found") {
+      if (paymentOption === 'pay_now' && !trxId) throw new Error("ট্রানজেকশন আইডি প্রদান করুন");
+      if (paymentOption === 'money_receipt' && !receiptNumber) throw new Error("মানি রিসিট নম্বর প্রদান করুন");
+      if (paymentOption === 'money_receipt' && receiptVerifyStatus !== 'valid') throw new Error("অর্ডার দেওয়ার আগে মানি রিসিট যাচাই করুন");
+      if (isPartialReceipt && remainingOption === 'pay_now' && !remainingTrxId) throw new Error("বাকি টাকার জন্য TrxID প্রদান করুন");
+
+      const isMobileIlhak = ilhak.trim().length === 11 && ilhak.trim().startsWith("01");
+
+      if (ilhak.trim() && searchStatus !== "found" && !isMobileIlhak) {
         await fetch("/api/madrasa/ilhak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -176,104 +235,346 @@ function OrderFormModal({ onClose, total }: { onClose: () => void; total: number
         });
       }
       
-      alert("অর্ডার সম্পন্ন হয়েছে! আপনার তথ্য সেভ করা হয়েছে।");
+      const ilhakText = (ilhak.trim() && !isMobileIlhak) ? ` (ইলহাক: ${ilhak.trim()})` : '';
+      
+      const items = cart.map(c => ({ productId: c.product.id, quantity: c.qty }));
+      // Determine what to actually send:
+      // If 'skip_receipt' chosen (user ignores verified receipt), treat as pay_later
+      const effectivePaymentOption = (paymentOption === 'money_receipt' && remainingOption === 'skip_receipt') ? 'pay_later' : paymentOption;
+      const res = await fetch("/api/store/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          customerName: ownerName, 
+          customerPhone: contactNo, 
+          instituteId: instituteName, 
+          items, 
+          notes: `${address}${ilhakText}`,
+          paymentOption: effectivePaymentOption,
+          paymentProvider: effectivePaymentOption === 'pay_now' ? paymentProvider : undefined,
+          trxId: effectivePaymentOption === 'pay_now' ? trxId : undefined,
+          receiptNumber: effectivePaymentOption === 'money_receipt' ? receiptNumber : undefined,
+          // Partial receipt extra fields
+          remainingOption: isPartialReceipt && remainingOption !== 'skip_receipt' ? remainingOption : undefined,
+          remainingProvider: isPartialReceipt && remainingOption === 'pay_now' ? remainingProvider : undefined,
+          remainingTrxId: isPartialReceipt && remainingOption === 'pay_now' ? remainingTrxId : undefined,
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit order");
+
+      onSuccess(data);
       onClose();
-    } catch (e) {
-      alert("অর্ডার করতে সমস্যা হয়েছে।");
+    } catch (e: any) {
+      setErrorMsg("অর্ডার করতে সমস্যা হয়েছে। " + (e.message || ""));
     } finally {
       setIsSubmitting(false);
     }
   };
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative animate-in zoom-in-95 duration-200 border border-slate-100 flex flex-col max-h-[90vh]">
         <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 flex-shrink-0">
           <h2 className="font-bold text-slate-800 text-lg">অর্ডার নিশ্চিত করুন</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+          <button onClick={() => onClose({ ilhak, ownerName, instituteName, contactNo, address, searchStatus, paymentStep })} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
             <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
         <div className="p-6 overflow-y-auto flex-1">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">ইলহাক বা মোবাইল নম্বর (পুরাতন তথ্যের জন্য)</label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={ilhak}
-                  onChange={(e) => setIlhak(e.target.value)}
-                  placeholder="যেমন: 1234 বা 01XXXXXXXXX" 
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
-                />
+          {!paymentStep ? (
+            <>
+              {errorMsg && <p className="mb-4 text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100">{errorMsg}</p>}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1.5">ইলহাক বা মোবাইল নম্বর (পুরাতন তথ্যের জন্য)</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={ilhak}
+                      onChange={(e) => {
+                        setIlhak(e.target.value);
+                        if (searchStatus !== "idle") setSearchStatus("idle");
+                      }}
+                      placeholder="যেমন: 1234 বা 01XXXXXXXXX" 
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
+                    />
+                    <button 
+                      onClick={searchIlhak}
+                      disabled={isLoading || !ilhak.trim()}
+                      className="px-5 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 flex-shrink-0"
+                    >
+                      {isLoading ? "খুঁজছি..." : "খুঁজুন"}
+                    </button>
+                  </div>
+                  {searchStatus === "found" && <p className="text-xs text-emerald-600 mt-1.5 font-medium">✓ {ilhak.trim().length === 11 && ilhak.trim().startsWith("01") ? "মোবাইল নম্বর" : "ইলহাক"} পাওয়া গেছে, তথ্য অটো-ফিল করা হয়েছে!</p>}
+                  {searchStatus === "not_found" && <p className="text-xs text-amber-600 mt-1.5 font-medium">⚠ {ilhak.trim().length === 11 && ilhak.trim().startsWith("01") ? "মোবাইল নম্বর" : "ইলহাক"} পাওয়া যায়নি। নতুন তথ্য সেভ করা হবে।</p>}
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">মালিকের নাম <span className="text-red-500">*</span></label>
+                    <input 
+                      type="text" 
+                      value={ownerName}
+                      onChange={(e) => setOwnerName(e.target.value)}
+                      placeholder="আপনার পুরো নাম" 
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">প্রতিষ্ঠানের নাম <span className="text-red-500">*</span></label>
+                    <input 
+                      type="text" 
+                      value={instituteName}
+                      onChange={(e) => setInstituteName(e.target.value)}
+                      placeholder="মাদরাসা/প্রতিষ্ঠানের নাম" 
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1.5">মোবাইল নম্বর</label>
+                  <input 
+                    type="tel" 
+                    value={contactNo}
+                    onChange={(e) => setContactNo(e.target.value)}
+                    placeholder="01XXXXXXXXX" 
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1.5">সম্পূর্ণ ঠিকানা <span className="text-red-500">*</span></label>
+                  <textarea 
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="গ্রাম/মহল্লা, ডাকঘর, উপজেলা, জেলা" 
+                    rows={3} 
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none bg-slate-50 focus:bg-white"
+                  ></textarea>
+                </div>
+              </div>
+              
+              <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between">
+                <span className="font-bold text-slate-500">সর্বমোট বিল:</span>
+                <span className="text-2xl font-black text-primary">৳{total.toFixed(2)}</span>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
                 <button 
-                  onClick={searchIlhak}
-                  disabled={isLoading || !ilhak.trim()}
-                  className="px-5 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50 flex-shrink-0"
+                  onClick={() => onClose({ ilhak, ownerName, instituteName, contactNo, address, searchStatus, paymentStep })}
+                  className="w-1/2 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold text-lg hover:bg-slate-200 transition-all border border-slate-200"
                 >
-                  {isLoading ? "খুঁজছি..." : "খুঁজুন"}
+                  আরও পণ্য যোগ করুন
+                </button>
+                <button 
+                  onClick={validateAndProceed}
+                  className="w-1/2 py-4 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 active:scale-[0.98]"
+                >
+                  পেমেন্ট অপশন
                 </button>
               </div>
-              {searchStatus === "found" && <p className="text-xs text-emerald-600 mt-1.5 font-medium">✓ ইলহাক পাওয়া গেছে, তথ্য অটো-ফিল করা হয়েছে!</p>}
-              {searchStatus === "not_found" && <p className="text-xs text-amber-600 mt-1.5 font-medium">⚠ ইলহাক পাওয়া যায়নি। নতুন তথ্য সেভ করা হবে।</p>}
-            </div>
+            </>
+          ) : (
+            <div className="animate-in slide-in-from-right-4">
+              <h3 className="font-bold text-slate-700 mb-4 text-center">কিভাবে পেমেন্ট করতে চান?</h3>
+              {errorMsg && <p className="mb-4 text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100">{errorMsg}</p>}
+              
+              <div className="space-y-3 mb-6">
+                <label className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${paymentOption === 'pay_now' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-slate-200 hover:border-primary/50'}`}>
+                  <input type="radio" name="payment_opt" checked={paymentOption === 'pay_now'} onChange={() => setPaymentOption('pay_now')} className="w-5 h-5 text-primary" />
+                  <span className="font-bold text-slate-700">এখনই পেমেন্ট করুন</span>
+                </label>
+                
+                {paymentOption === 'pay_now' && (
+                  <div className="pl-12 pr-4 pb-4 animate-in fade-in">
+                    <div className="grid grid-cols-4 gap-2 mb-4">
+                      {[
+                        { id: 'bKash', name: 'bKash', logo: 'https://freelogopng.com/images/all_img/1656234745bkash-app-logo-png.png' },
+                        { id: 'Nagad', name: 'Nagad', logo: 'https://freelogopng.com/images/all_img/1679248787Nagad-Logo.png' },
+                        { id: 'Rocket', name: 'Rocket', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Rocket_mobile_banking_logo.svg/512px-Rocket_mobile_banking_logo.svg.png' },
+                        { id: 'Bank', name: 'Bank' }
+                      ].map(p => (
+                        <button 
+                          key={p.id} 
+                          onClick={() => setPaymentProvider(p.id as any)} 
+                          className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all border-2 ${paymentProvider === p.id ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-slate-300 bg-white'}`}
+                        >
+                          <div className="h-10 flex items-center justify-center">
+                            {p.logo ? (
+                              <img src={p.logo} alt={p.name} className="max-h-full max-w-full object-contain" />
+                            ) : (
+                              <Building2 className={`w-8 h-8 ${paymentProvider === p.id ? 'text-primary' : 'text-slate-600'}`} />
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl mb-4 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-blue-800 font-medium mb-1">এই নাম্বারে টাকা পাঠিয়ে TrxID দিন:</p>
+                        <p className="text-lg font-black text-blue-900 tracking-wider">
+                          {paymentProvider === 'bKash' ? '01700000000 (bKash)' : 
+                           paymentProvider === 'Nagad' ? '01700000000 (Nagad)' : 
+                           paymentProvider === 'Rocket' ? '01700000000 (Rocket)' : 'A/C: 123456789, Islami Bank'}
+                        </p>
+                      </div>
+                      <button 
+                        onClick={handleCopy}
+                        className="flex flex-col items-center justify-center bg-white border border-blue-200 text-blue-600 rounded-lg w-12 h-12 hover:bg-blue-100 transition-colors flex-shrink-0"
+                        title="নম্বর কপি করুন"
+                      >
+                        {copied ? <CheckCircle className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                        <span className="text-[10px] font-bold mt-1">{copied ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">ট্রানজেকশন আইডি (TrxID) <span className="text-red-500">*</span></label>
+                      <input type="text" value={trxId} onChange={e => setTrxId(e.target.value)} placeholder="Enter TrxID" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-primary" />
+                    </div>
+                  </div>
+                )}
 
-            <div className="pt-2 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5">মালিকের নাম <span className="text-red-500">*</span></label>
-                <input 
-                  type="text" 
-                  value={ownerName}
-                  onChange={(e) => setOwnerName(e.target.value)}
-                  placeholder="আপনার পুরো নাম" 
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
-                />
+                <label className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${paymentOption === 'money_receipt' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-slate-200 hover:border-primary/50'}`}>
+                  <input type="radio" name="payment_opt" checked={paymentOption === 'money_receipt'} onChange={() => setPaymentOption('money_receipt')} className="w-5 h-5 text-primary" />
+                  <span className="font-bold text-slate-700">মানি রিসিট আছে</span>
+                </label>
+                
+                {paymentOption === 'money_receipt' && (
+                  <div className="pl-12 pr-4 pb-4 animate-in fade-in space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">মানি রিসিট নম্বর <span className="text-red-500">*</span></label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          value={receiptNumber} 
+                          onChange={e => {
+                            setReceiptNumber(e.target.value);
+                            if (receiptVerifyStatus !== 'idle') {
+                              setReceiptVerifyStatus('idle');
+                              setReceiptVerifyMsg('');
+                              setReceiptBalance(0);
+                            }
+                          }} 
+                          placeholder="Receipt Number" 
+                          className={`flex-1 px-4 py-2.5 rounded-lg border focus:outline-none focus:border-primary transition-all ${receiptVerifyStatus === 'valid' ? 'border-emerald-400 bg-emerald-50' : receiptVerifyStatus === 'invalid' ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+                        />
+                        <button 
+                          onClick={verifyReceipt}
+                          disabled={receiptVerifyStatus === 'verifying' || !receiptNumber.trim()}
+                          className="px-4 py-2.5 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 text-sm flex-shrink-0"
+                        >
+                          {receiptVerifyStatus === 'verifying' ? 'যাচাই...' : 'যাচাই করুন'}
+                        </button>
+                      </div>
+                      {receiptVerifyMsg && (
+                        <p className={`text-xs mt-1.5 font-medium ${receiptVerifyStatus === 'valid' ? 'text-emerald-600' : 'text-red-500'}`}>
+                          {receiptVerifyMsg}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* === PARTIAL BALANCE PANEL === */}
+                    {receiptVerifyStatus === 'valid' && receiptBalance < total && (
+                      <div className="border border-amber-200 rounded-xl overflow-hidden">
+                        {/* Balance breakdown */}
+                        <div className="bg-amber-50 p-3 space-y-1.5">
+                          <p className="text-xs font-bold text-amber-800">বালান্স বিবরণ:</p>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">মোট বিল:</span>
+                            <span className="font-bold text-slate-800">৳{total.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-emerald-600">রিসিট ব্যালান্স:</span>
+                            <span className="font-bold text-emerald-600">-৳{receiptBalance.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm border-t border-amber-200 pt-1.5">
+                            <span className="text-red-600 font-bold">বাকি পায়্যোয়সের:</span>
+                            <span className="font-black text-red-600">৳{(total - receiptBalance).toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        {/* Options for remaining */}
+                        <div className="bg-white p-3 space-y-2">
+                          <p className="text-xs font-bold text-slate-700 mb-2">বাকি টাকা কিভাবে দিবেন?</p>
+                          
+                          {/* Pay now for remaining */}
+                          <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-sm ${remainingOption === 'pay_now' ? 'border-primary bg-primary/5' : 'border-slate-200'}`}>
+                            <input type="radio" checked={remainingOption === 'pay_now'} onChange={() => setRemainingOption('pay_now')} className="w-4 h-4 text-primary" />
+                            <span className="font-bold">এখনই বাকি পেমেন্ট করব</span>
+                          </label>
+
+                          {remainingOption === 'pay_now' && (
+                            <div className="pl-6 space-y-2 animate-in fade-in">
+                              <div className="grid grid-cols-4 gap-1.5">
+                                {[
+                                  { id: 'bKash', logo: 'https://freelogopng.com/images/all_img/1656234745bkash-app-logo-png.png' },
+                                  { id: 'Nagad', logo: 'https://freelogopng.com/images/all_img/1679248787Nagad-Logo.png' },
+                                  { id: 'Rocket', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Rocket_mobile_banking_logo.svg/512px-Rocket_mobile_banking_logo.svg.png' },
+                                  { id: 'Bank' }
+                                ].map(p => (
+                                  <button key={p.id} onClick={() => setRemainingProvider(p.id as any)}
+                                    className={`flex items-center justify-center p-1.5 rounded-lg border-2 transition-all ${ remainingProvider === p.id ? 'border-primary bg-primary/5' : 'border-slate-100 bg-white'}`}
+                                  >
+                                    {p.logo ? <img src={p.logo} alt={p.id} className="h-7 object-contain" /> : <Building2 className="w-6 h-6 text-slate-500" />}
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-lg flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs text-blue-700 font-medium">বাকি ৳{(total - receiptBalance).toFixed(2)} পাঠান:</p>
+                                  <p className="text-sm font-black text-blue-900">
+                                    {remainingProvider === 'Bank' ? 'A/C: 123456789' : `01700000000 (${remainingProvider})`}
+                                  </p>
+                                </div>
+                                <button onClick={() => { navigator.clipboard.writeText(remainingProvider === 'Bank' ? '123456789' : '01700000000'); setRemainingCopied(true); setTimeout(() => setRemainingCopied(false), 2000); }}
+                                  className="bg-white border border-blue-200 text-blue-600 rounded-lg p-2 hover:bg-blue-100"
+                                >
+                                  {remainingCopied ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                                </button>
+                              </div>
+                              <input type="text" value={remainingTrxId} onChange={e => setRemainingTrxId(e.target.value)}
+                                placeholder="বাকি টাকার TrxID লিখুন"
+                                className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-primary text-sm" />
+                            </div>
+                          )}
+
+                          {/* Pay later for remaining */}
+                          <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-sm ${remainingOption === 'pay_later' ? 'border-primary bg-primary/5' : 'border-slate-200'}`}>
+                            <input type="radio" checked={remainingOption === 'pay_later'} onChange={() => setRemainingOption('pay_later')} className="w-4 h-4 text-primary" />
+                            <span className="font-bold">বাকি পরে দেব (বাকি বাকি থাকবে)</span>
+                          </label>
+
+                          {/* Skip — don't use receipt */}
+                          <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all text-sm ${remainingOption === 'skip_receipt' ? 'border-amber-400 bg-amber-50' : 'border-slate-200'}`}>
+                            <input type="radio" checked={remainingOption === 'skip_receipt'} onChange={() => setRemainingOption('skip_receipt')} className="w-4 h-4 text-amber-500" />
+                            <span className="font-bold text-amber-700">রিসিট অ্যাপর্যায় — এখন ব্যবহার করব না</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <label className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${paymentOption === 'pay_later' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-slate-200 hover:border-primary/50'}`}>
+                  <input type="radio" name="payment_opt" checked={paymentOption === 'pay_later'} onChange={() => setPaymentOption('pay_later')} className="w-5 h-5 text-primary" />
+                  <span className="font-bold text-slate-700">পরে পেমেন্ট করব</span>
+                </label>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5">প্রতিষ্ঠানের নাম <span className="text-red-500">*</span></label>
-                <input 
-                  type="text" 
-                  value={instituteName}
-                  onChange={(e) => setInstituteName(e.target.value)}
-                  placeholder="মাদরাসা/প্রতিষ্ঠানের নাম" 
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
-                />
+
+              <div className="flex gap-3">
+                <button onClick={() => setPaymentStep(false)} className="px-5 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">
+                  ফিরে যান
+                </button>
+                <button 
+                  onClick={submitOrder}
+                  disabled={isSubmitting}
+                  className="flex-1 py-4 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 disabled:opacity-70"
+                >
+                  {isSubmitting ? "অপেক্ষা করুন..." : "অর্ডার সম্পূর্ণ করুন"}
+                </button>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">মোবাইল নম্বর</label>
-              <input 
-                type="tel" 
-                value={contactNo}
-                onChange={(e) => setContactNo(e.target.value)}
-                placeholder="01XXXXXXXXX" 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-slate-50 focus:bg-white" 
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">সম্পূর্ণ ঠিকানা <span className="text-red-500">*</span></label>
-              <textarea 
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="গ্রাম/মহল্লা, ডাকঘর, উপজেলা, জেলা" 
-                rows={3} 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none bg-slate-50 focus:bg-white"
-              ></textarea>
-            </div>
-          </div>
-          
-          <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between">
-            <span className="font-bold text-slate-500">সর্বমোট বিল:</span>
-            <span className="text-2xl font-black text-primary">৳{total.toFixed(2)}</span>
-          </div>
-          
-          <button 
-            onClick={handleConfirm}
-            disabled={isSubmitting}
-            className="mt-6 w-full py-4 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 active:scale-[0.98] disabled:opacity-70"
-          >
-            {isSubmitting ? "অপেক্ষা করুন..." : "কনফার্ম করুন"}
-          </button>
+          )}
         </div>
       </div>
     </div>
@@ -283,6 +584,82 @@ function OrderFormModal({ onClose, total }: { onClose: () => void; total: number
 export default function StorePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [successOrder, setSuccessOrder] = useState<any>(null);
+  const [orderFormState, setOrderFormState] = useState<any>(null);
+
+  const printInvoice = (orderToPrint = successOrder) => {
+    if (!orderToPrint) return;
+    const totalPayable = orderToPrint.totalAmount + (orderToPrint.previousDue || 0);
+    const paidAmount = orderToPrint.paidAmount || 0;
+    const dueAmount = totalPayable - paidAmount;
+    const address = orderToPrint.notes?.replace(/\(ইলহাক:.*?\)/g, '').trim() || '';
+    const ilhakMatch = orderToPrint.notes?.match(/\(ইলহাক:\s*([^)]+)\)/);
+    const ilhak = ilhakMatch ? ilhakMatch[1].trim() : '';
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(`
+        <html>
+          <head>
+            <title>Invoice ${orderToPrint.invoiceId}</title>
+            <style>
+              body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; color: #1e293b; line-height: 1.5; }
+              h1 { color: #16a34a; margin-bottom: 0; }
+              .header { border-bottom: 2px solid #16a34a; padding-bottom: 10px; margin-bottom: 20px; text-align: center; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; border: 1px solid #16a34a; }
+              th { background: #16a34a; color: white; padding: 8px; text-align: left; border: 1px solid #16a34a; }
+              td { padding: 8px; border: 1px solid #16a34a; }
+              .text-right { text-align: right; }
+              .text-center { text-align: center; }
+              .info { background: #f8fafc; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
+              .totals { width: 300px; margin-left: auto; margin-top: 20px; }
+              .totals div { display: flex; justify-content: space-between; padding: 5px 0; }
+              .grand-total { font-size: 18px; font-weight: bold; border-top: 2px solid #16a34a; padding-top: 10px !important; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>নূরানী তালিমুল কুরআন বোর্ড - অনলাইন অর্ডার</h1>
+              <p>অর্ডারটি সফলভাবে গ্রহণ করা হয়েছে। অনুগ্রহ করে ইনভয়েসটি সংরক্ষণ করুন।</p>
+            </div>
+            <div class="info">
+              <p><strong>ইনভয়েস নং:</strong> ${orderToPrint.invoiceId}</p>
+              <p><strong>ক্রেতার নাম:</strong> ${orderToPrint.customerName}</p>
+              <p><strong>মোবাইল নাম্বার:</strong> ${orderToPrint.customerPhone || 'N/A'}</p>
+              <p><strong>ঠিকানা:</strong> ${orderToPrint.notes?.replace(/\(ইলহাক: 01\d{9}\)/g, '').trim() || 'N/A'}</p>
+              <p><strong>তারিখ:</strong> ${new Date(orderToPrint.createdAt).toLocaleDateString('bn-BD')}</p>
+            </div>
+            <table>
+              <tr><th>পণ্যের নাম</th><th class="text-center">পরিমাণ</th><th class="text-right">একক মূল্য</th><th class="text-right">মোট মূল্য</th></tr>
+              ${orderToPrint.items.map((i: any) => `<tr><td>${i.product.name}</td><td class="text-center">${i.quantity}</td><td class="text-right">${i.unitPrice} ৳</td><td class="text-right">${(i.quantity * i.unitPrice).toFixed(2)} ৳</td></tr>`).join('')}
+            </table>
+            <div class="totals">
+              <div><span>বর্তমান বিল:</span><span>${orderToPrint.totalAmount.toFixed(2)} ৳</span></div>
+              ${orderToPrint.previousDue ? `<div><span>পূর্বের বকেয়া:</span><span>${orderToPrint.previousDue.toFixed(2)} ৳</span></div>` : ''}
+              <div class="grand-total"><span>সর্বমোট প্রদেয়:</span><span>${(orderToPrint.totalAmount + (orderToPrint.previousDue || 0)).toFixed(2)} ৳</span></div>
+            </div>
+          </body>
+        </html>
+      `);
+      doc.close();
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => document.body.removeChild(iframe), 2000);
+        }, 500);
+      };
+    }
+  };
   const [search, setSearch] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
@@ -804,7 +1181,53 @@ export default function StorePage() {
       )}
 
       {isOrderModalOpen && (
-        <OrderFormModal onClose={() => setIsOrderModalOpen(false)} total={cartTotal} />
+        <OrderFormModal 
+          initialState={orderFormState}
+          onClose={(savedState) => {
+            if (savedState) setOrderFormState(savedState);
+            setIsOrderModalOpen(false);
+          }} 
+          total={cartTotal} 
+          cart={cart} 
+          onSuccess={(data) => {
+            setSuccessOrder(data);
+            setCart([]);
+            setOrderFormState(null); // clear state after success so the next order starts fresh
+            setIsOrderModalOpen(false);
+            setCartOpen(false);
+            setTimeout(() => printInvoice(data), 500);
+        }} />
+      )}
+
+      {/* Success Modal */}
+      {successOrder && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+            <h3 className="font-black text-2xl text-slate-800 mb-2">অর্ডার সফল হয়েছে!</h3>
+            <p className="text-slate-500 mb-6">আপনার অর্ডারটি আমাদের সিস্টেমে গ্রহণ করা হয়েছে। আপনার ইনভয়েস আইডি:</p>
+            <div className="bg-slate-100 text-slate-800 font-black text-xl px-4 py-2 rounded-lg mb-6 border border-slate-200 shadow-inner flex items-center justify-between gap-4">
+              <span>{successOrder.invoiceId}</span>
+              <button 
+                onClick={() => navigator.clipboard.writeText(successOrder.invoiceId)}
+                title="কপি করুন"
+                className="p-1.5 hover:bg-slate-200 rounded-md text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <Copy className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-3 w-full">
+              <button onClick={() => printInvoice(successOrder)} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
+                ইনভয়েস প্রিন্ট করুন
+              </button>
+              <button onClick={() => setSuccessOrder(null)} className="w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">
+                বন্ধ করুন
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

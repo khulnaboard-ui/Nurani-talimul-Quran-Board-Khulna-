@@ -3,6 +3,8 @@ import { PrismaClient } from "@prisma/client";
 import { cookies } from "next/headers";
 import * as jose from "jose";
 
+export const dynamic = 'force-dynamic';
+
 const prisma = new PrismaClient();
 
 async function verifyAdmin() {

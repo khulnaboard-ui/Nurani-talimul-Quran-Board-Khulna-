@@ -1,26 +1,29 @@
 "use client";
 import React, { useState } from 'react';
-import { ShoppingCart, Package, CreditCard } from 'lucide-react';
+import { ShoppingCart, Package, CreditCard, ClipboardList } from 'lucide-react';
 import SaleTab from './SaleTab';
 import StockTab from './StockTab';
 import PaymentTab from './PaymentTab';
+import OrderTab from './OrderTab';
+
+import ReceiptTab from './ReceiptTab';
 
 export default function StoreManagementView() {
-  const [activeTab, setActiveTab] = useState<'sale' | 'stock' | 'payment'>('sale');
+  const [activeTab, setActiveTab] = useState<'sale' | 'stock' | 'payment' | 'order' | 'receipt'>('sale');
 
   React.useEffect(() => {
     const saved = localStorage.getItem('store_active_tab');
-    if (saved === 'sale' || saved === 'stock' || saved === 'payment') {
+    if (saved === 'sale' || saved === 'stock' || saved === 'payment' || saved === 'order' || saved === 'receipt') {
       setActiveTab(saved);
     }
   }, []);
 
-  const handleTabChange = (tab: 'sale' | 'stock' | 'payment') => {
+  const handleTabChange = (tab: 'sale' | 'stock' | 'payment' | 'order' | 'receipt') => {
     setActiveTab(tab);
     localStorage.setItem('store_active_tab', tab);
   };
 
-  const handleTabClick = (e: React.MouseEvent<HTMLButtonElement>, tab: 'sale' | 'stock' | 'payment') => {
+  const handleTabClick = (e: React.MouseEvent<HTMLButtonElement>, tab: 'sale' | 'stock' | 'payment' | 'order' | 'receipt') => {
     handleTabChange(tab);
     e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   };
@@ -46,6 +49,18 @@ export default function StoreManagementView() {
             <ShoppingCart className="w-5 h-5" />
             বিক্রয় (Sale)
           </button>
+
+          <button
+            onClick={(e) => handleTabClick(e, 'order')}
+            className={`flex items-center gap-2 pb-4 px-2 border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'order' 
+                ? 'border-amber-600 text-amber-600 font-bold' 
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium'
+            }`}
+          >
+            <ClipboardList className="w-5 h-5" />
+            অর্ডার (Order)
+          </button>
           
           <button
             onClick={(e) => handleTabClick(e, 'stock')}
@@ -70,14 +85,28 @@ export default function StoreManagementView() {
             <CreditCard className="w-5 h-5" />
             পেমেন্ট (Payment)
           </button>
+
+          <button
+            onClick={(e) => handleTabClick(e, 'receipt')}
+            className={`flex items-center gap-2 pb-4 px-2 border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'receipt' 
+                ? 'border-emerald-600 text-emerald-600 font-bold' 
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium'
+            }`}
+          >
+            <ClipboardList className="w-5 h-5" />
+            মানি রিসিট (Receipts)
+          </button>
         </div>
       </div>
 
       {/* Tab Content */}
       <div className="flex-1 px-3 py-4 md:p-6 bg-transparent md:bg-white overflow-visible">
         {activeTab === 'sale' && <SaleTab />}
+        {activeTab === 'order' && <OrderTab />}
         {activeTab === 'stock' && <StockTab />}
         {activeTab === 'payment' && <PaymentTab />}
+        {activeTab === 'receipt' && <ReceiptTab />}
       </div>
     </div>
   );

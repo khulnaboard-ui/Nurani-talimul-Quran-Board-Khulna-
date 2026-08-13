@@ -34,9 +34,89 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   if (!(await verifyAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const body = await request.json();
-    const existingSale = await (prisma as any).storeSale.findUnique({ where: { id: params.id } });
+    const existingSale = await (prisma as any).storeSale.findUnique({ 
+      where: { id: params.id },
+      include: { items: true }
+    });
     if (!existingSale) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    // Handle Order Accept
+    if (body.action === 'acceptOrder') {
+      const data: Record<string, unknown> = {
+        status: body.status || 'Pending',
+      };
+      
+      let paymentAmount = 0;
+      if (body.paidAmount !== undefined) {
+        data.paidAmount = parseFloat(body.paidAmount);
+        paymentAmount = (data.paidAmount as number);
+      }
+
+      if (body.promiseDate) {
+        data.promiseDate = new Date(body.promiseDate);
+      }
+
+      // Deduct stock for all items
+      for (const item of existingSale.items) {
+        await (prisma as any).storeProduct.update({
+          where: { id: item.productId },
+          data: { stock: { decrement: item.quantity } },
+        });
+      }
+
+      const sale = await (prisma as any).storeSale.update({
+        where: { id: params.id },
+        data,
+        include: { items: { include: { product: true } }, payments: true },
+      });
+
+      if (paymentAmount > 0) {
+        await (prisma as any).storePayment.create({
+          data: {
+            saleId: sale.id,
+            payer: sale.customerName,
+            purpose: `Payment for Invoice ${sale.invoiceId}`,
+            amount: paymentAmount,
+            method: body.paymentMethod || "Cash",
+            status: "Completed",
+          },
+        });
+      }
+      return NextResponse.json(sale);
+    }
+
+    // Handle Order Items Update
+    if (body.action === 'updateItems') {
+      if (!body.items || !Array.isArray(body.items)) return NextResponse.json({ error: "Items array required" }, { status: 400 });
+      
+      await (prisma as any).storeSaleItem.deleteMany({ where: { saleId: params.id } });
+      
+      let totalAmount = 0;
+      const itemsToCreate = [];
+      for (const item of body.items) {
+        const product = await (prisma as any).storeProduct.findUnique({ where: { id: item.productId } });
+        if (product) {
+          totalAmount += product.price * item.quantity;
+          itemsToCreate.push({
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: product.price,
+          });
+        }
+      }
+      
+      const sale = await (prisma as any).storeSale.update({
+        where: { id: params.id },
+        data: {
+          totalAmount,
+          items: { create: itemsToCreate }
+        },
+        include: { items: { include: { product: true } }, payments: true },
+      });
+      return NextResponse.json(sale);
+    }
+
+    // Standard update
     const data: Record<string, unknown> = {};
     if (body.status !== undefined) data.status = body.status;
     let paymentAmount = 0;

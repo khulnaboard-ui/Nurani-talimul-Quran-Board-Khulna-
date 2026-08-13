@@ -140,6 +140,28 @@ model StockHistory {
   createdAt DateTime     @default(now())
 }
 
+model MoneyReceipt {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  receiptNumber String         @unique
+  amount        Float
+  usedAmount    Float          @default(0)
+  status        String         @default("Active") // Active, Fully Used, Cancelled
+  createdBy     String?
+  customerPhone String?        // optional: phone linked to this receipt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  usages        ReceiptUsage[]
+}
+
+model ReceiptUsage {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  receiptId     String       @db.ObjectId
+  receipt       MoneyReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  invoiceId     String       
+  usedAmount    Float
+  createdAt     DateTime     @default(now())
+}
+
 model StoreSale {
   id           String         @id @default(auto()) @map("_id") @db.ObjectId
   invoiceId    String         @unique
@@ -149,6 +171,8 @@ model StoreSale {
   totalAmount  Float
   paidAmount   Float          @default(0)
   discount     Float          @default(0)
+  previousDue  Float          @default(0)
+  previousDueList Json?
   status       String         @default("Pending") // Paid | Pending | Partial
   promiseDate  DateTime?
   notes        String?
